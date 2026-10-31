@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+/*
+ * Design system KOTI (PRD §11) — palette volontairement restreinte :
+ * vert principal, vert clair, blanc, gris clair, gris foncé, rouge (erreurs/retards), orange (avertissements).
+ * Contrastes vérifiés ≥ 4.5:1 pour les textes (WCAG AA).
+ */
+:root {
+  --background: #f5f7f6;
+  --foreground: #101a15;
+  --card: #ffffff;
+  --muted: #eef2f0;
+  --muted-foreground: #56645d;
+  --border: #dfe5e2;
+  --input: #cfd8d3;
+
+  --primary: #15803d;
+  --primary-hover: #166534;
+  --primary-foreground: #ffffff;
+  --primary-soft: #e3f6e9;
+  --primary-soft-foreground: #14532d;
+
+  --destructive: #dc2626;
+  --destructive-hover: #b91c1c;
+  --destructive-soft: #fdecec;
+  --destructive-soft-foreground: #a61b1b;
+
+  --warning: #c2410c;
+  --warning-soft: #fff1e6;
+  --warning-soft-foreground: #9a3412;
+
+  --ring: #16a34a;
+  --sidebar: #0f2a1c;
+  --sidebar-foreground: #d5e8dc;
+  --sidebar-muted: #8fb39d;
+}
+
+@theme inline {
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "tnum" 0;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  ::selection {
+    @apply bg-primary-soft;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+@utility pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

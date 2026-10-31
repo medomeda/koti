@@ -1,0 +1,26 @@
+import type { Metadata, Viewport } from "next";
+import { IBM_Plex_Sans } from "next/font/google";
+import type { ReactNode } from "react";
+import { Toaster } from "sonner";
+import "./globals.css";
+
+const plex = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-plex", display: "swap" });
+
+export const metadata: Metadata = {
+  title: { default: "KOTI — Gestion de tontines", template: "%s · KOTI" },
+  description: "Créez, organisez et suivez vos tontines : membres, cotisations, paiements et tours de main.",
+  robots: { index: false, follow: false },
+};
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#15803d" };
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="fr" className={plex.variable}>
+      <body>
+        {children}
+        <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 4000 }} />
+      </body>
+    </html>
+  );
+}
