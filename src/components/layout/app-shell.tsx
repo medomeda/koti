@@ -75,7 +75,13 @@ export function AppShell({ user, unread, pendingPayments, children }: { user: Sh
         <div className="flex-1" />
         <Link href="/alerts" className="relative rounded-lg p-2.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label={unread ? `Alertes (${unread} non lues)` : "Alertes"}>
           <Bell className="size-5" />
-          {unread > 0 && <span className="absolute right-1.5 top-1.5 size-2.5 rounded-full bg-destructive ring-2 ring-card" aria-hidden />}
+          {unread > 0 && (
+            <>
+              {/* Mobile : compteur (les alertes ne sont plus dans la barre du bas). Desktop : simple pastille. */}
+              <CountBadge count={unread} className="absolute -right-0.5 -top-0.5 ring-2 ring-card lg:hidden" />
+              <span className="absolute right-1.5 top-1.5 hidden size-2.5 rounded-full bg-destructive ring-2 ring-card lg:block" aria-hidden />
+            </>
+          )}
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-muted" aria-label="Menu du compte">
@@ -101,10 +107,10 @@ export function AppShell({ user, unread, pendingPayments, children }: { user: Sh
         {children}
       </main>
 
-      {/* Bottom Navigation Bar — mobile (5 entrées, pas de bouton central) */}
+      {/* Bottom Navigation Bar — mobile (4 entrées, pas de bouton central). Les alertes passent par la cloche de l'en-tête. */}
       <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 pb-safe backdrop-blur lg:hidden">
-        <ul className="mx-auto grid max-w-lg grid-cols-5">
-          {NAV.map((item) => {
+        <ul className="mx-auto grid max-w-lg grid-cols-4">
+          {NAV.filter((item) => item.href !== "/alerts").map((item) => {
             const active = isActive(pathname, item.href, "exact" in item && item.exact);
             const Icon = item.icon;
             const count = badgeFor(item.href);

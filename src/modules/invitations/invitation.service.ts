@@ -39,6 +39,9 @@ export function createInvitation(ctx: Ctx, input: { tontineId: string; email: st
     const { tontine } = requireAccess(s, ctx, input.tontineId, "member.invite");
     if (tontine.status === "COMPLETED" || tontine.status === "CANCELLED") throw invalidState("Impossible d'inviter dans une tontine clôturée.");
 
+    if (s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").length >= tontine.expectedMemberCount) {
+      throw invalidState("Toutes les places prévues sont occupées. Augmentez le nombre de membres prévu (en brouillon) pour inviter davantage.");
+    }
     const existingUser = findUserByContact(s, input.email, input.phone);
     if (existingUser && s.tontineMembers.some((m) => m.tontineId === tontine.id && m.userId === existingUser.id && m.status === "ACTIVE")) {
       throw conflict("Cette personne est déjà membre de la tontine.");
@@ -102,7 +105,15 @@ export function listTontineInvitations(ctx: Ctx, tontineId: string) {
   });
 }
 
-function contactMatches(s: Readonly<DbState>, inv: Invitation, userId: string) {
+/**
+ * Le contact invité correspond-il à l'utilisateur ?
+ * - si l'invitation visait un compte existant, seul CE compte peut répondre ;
+ * - un numéro de téléphone n'est pas vérifié : une invitation par téléphone sans compte cible
+ *   n'est utilisable qu'avec le jeton reçu par SMS (`viaToken`), jamais depuis la liste des alertes.
+ */
+function contactMatches(s: Readonly<DbState>, inv: Invitation, userId: string, viaToken = false) {
+  if (inv.invitedUserId && inv.invitedUserId !== userId) return false;
+  if (inv.invitedPhone && !inv.invitedUserId && !viaToken) return false;
   const user = s.users.find((u) => u.id === userId);
   const profile = s.userProfiles.find((p) => p.userId === userId);
   if (inv.invitedEmail) return user?.email === inv.invitedEmail;
@@ -160,7 +171,7 @@ export function acceptInvitation(ctx: Ctx, ref: RespondRef): string {
   return tx((s) => {
     const inv = locate(s, ref);
     if (!inv) throw notFound("Invitation introuvable ou lien invalide.");
-    if (!contactMatches(s, inv, ctx.userId)) throw new AppError("FORBIDDEN", "Cette invitation est destinée à un autre contact. Connectez-vous avec le compte correspondant.");
+    if (!contactMatches(s, inv, ctx.userId, "token" in ref)) throw new AppError("FORBIDDEN", "Cette invitation est destinée à un autre contact. Connectez-vous avec le compte correspondant.");
     if (isExpired(inv, ctx.now)) throw invalidState("Cette invitation a expiré. Demandez-en une nouvelle à l'administrateur.");
     if (inv.status !== "PENDING") throw invalidState("Cette invitation a déjà été utilisée ou annulée.");
     const tontine = s.tontines.find((t) => t.id === inv.tontineId)!;
@@ -168,6 +179,8 @@ export function acceptInvitation(ctx: Ctx, ref: RespondRef): string {
 
     const existing = s.tontineMembers.find((m) => m.tontineId === tontine.id && m.userId === ctx.userId);
     if (existing?.status === "ACTIVE") throw conflict("Vous êtes déjà membre de cette tontine.");
+    const activeCount = s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").length;
+    if (activeCount >= tontine.expectedMemberCount) throw invalidState("Cette tontine est complète : toutes les places prévues sont occupées.");
     let memberId: string;
     if (existing) {
       // Contrainte unique (tontine, user) : une ancienne adhésion est réactivée, son historique conservé.
@@ -202,7 +215,7 @@ export function refuseInvitation(ctx: Ctx, ref: RespondRef) {
   tx((s) => {
     const inv = locate(s, ref);
     if (!inv) throw notFound("Invitation introuvable ou lien invalide.");
-    if (!contactMatches(s, inv, ctx.userId)) throw new AppError("FORBIDDEN", "Cette invitation est destinée à un autre contact.");
+    if (!contactMatches(s, inv, ctx.userId, "token" in ref)) throw new AppError("FORBIDDEN", "Cette invitation est destinée à un autre contact.");
     if (effectiveStatus(inv, ctx.now) !== "PENDING") throw invalidState("Cette invitation n'est plus en attente.");
     const tontine = s.tontines.find((t) => t.id === inv.tontineId)!;
     inv.status = "REFUSED";

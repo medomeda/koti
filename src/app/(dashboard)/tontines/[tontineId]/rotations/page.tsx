@@ -111,6 +111,7 @@ export default async function RotationsPage({ params }: { params: Promise<{ tont
             </CardHeader>
             <CardContent>
               <RotationEditor
+                key={active.map((r) => `${r.memberId}:${r.position}`).join(",")}
                 tontineId={tontine.id}
                 started={tontine.status !== "DRAFT"}
                 dates={dates}

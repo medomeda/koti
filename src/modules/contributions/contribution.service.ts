@@ -19,6 +19,11 @@ export function isOverdue(o: Pick<ContributionObligation, "status" | "dueDate">,
   return o.status !== "PAID" && o.dueDate < todayDate;
 }
 
+/** Échéance tombée pendant une suspension : la période est clôturée sans obligation. */
+export function isInPause(tontine: Pick<Tontine, "pauses">, dueDate: ISODate): boolean {
+  return (tontine.pauses ?? []).some((p) => dueDate >= p.from && (p.to === null || dueDate < p.to));
+}
+
 /**
  * Un membre doit une période si :
  * - il a rejoint avant (ou le jour du) démarrage → toutes les périodes ;
@@ -46,9 +51,11 @@ export function ensureObligations(s: DbState, ctx: Ctx, tontine: Tontine): numbe
   for (let n = 1; n <= target; n++) {
     let period = s.contributionPeriods.find((p) => p.tontineId === tontine.id && p.periodNumber === n);
     if (!period) {
-      period = { id: newId(), tontineId: tontine.id, periodNumber: n, dueDate: dueDateForPeriod(tontine.frequency, tontine.startDate, n, tontine.frequencyConfig), status: "OPEN", createdAt: isoNow(ctx) };
+      const dueDate = dueDateForPeriod(tontine.frequency, tontine.startDate, n, tontine.frequencyConfig);
+      period = { id: newId(), tontineId: tontine.id, periodNumber: n, dueDate, status: isInPause(tontine, dueDate) ? "CLOSED" : "OPEN", createdAt: isoNow(ctx) };
       s.contributionPeriods.push(period);
     }
+    if (period.status === "CLOSED") continue;
     for (const m of members) {
       if (!memberOwesPeriod(m, tontine, period.dueDate)) continue;
       if (s.contributionObligations.some((o) => o.periodId === period.id && o.memberId === m.id)) continue;
@@ -75,7 +82,7 @@ export function nextDueDate(tontine: Tontine, todayDate: ISODate): ISODate | nul
   if (tontine.status !== "ACTIVE") return null;
   for (let n = 1; n <= tontine.expectedMemberCount; n++) {
     const d = dueDateForPeriod(tontine.frequency, tontine.startDate, n, tontine.frequencyConfig);
-    if (d >= todayDate) return d;
+    if (d >= todayDate && !isInPause(tontine, d)) return d;
   }
   return null;
 }

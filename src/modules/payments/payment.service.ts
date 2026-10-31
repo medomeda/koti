@@ -25,6 +25,8 @@ export interface ObligationView {
   status: ObligationStatus;
   /** Dernière déclaration (la plus récente), le cas échéant. */
   lastPayment: PaymentView | null;
+  /** Dernière déclaration refusée et pas encore remplacée (indépendant de l'affichage « En retard »). */
+  rejected: boolean;
   canDeclare: boolean;
 }
 
@@ -79,6 +81,7 @@ function toObligationView(s: Readonly<DbState>, o: ContributionObligation, t: IS
     dueDate: o.dueDate,
     status: effectiveObligationStatus(o, t),
     lastPayment: last ? toPaymentView(s, last) : null,
+    rejected: o.status === "REJECTED",
     canDeclare: myMemberIds.has(o.memberId) && member.status === "ACTIVE" && (o.status === "PENDING" || o.status === "REJECTED") && PAYABLE_TONTINE.includes(tontine.status),
   };
 }

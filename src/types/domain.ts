@@ -77,6 +77,8 @@ export interface Tontine {
   expectedMemberCount: number;
   rotationMode: RotationMode;
   status: TontineStatus;
+  /** Fenêtres de suspension : les échéances qui y tombent ne sont jamais réclamées. */
+  pauses: Array<{ from: ISODate; to: ISODate | null }>;
   creatorId: string;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;

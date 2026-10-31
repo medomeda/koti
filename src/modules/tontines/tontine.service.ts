@@ -1,6 +1,6 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
-import { effectiveObligationStatus, ensureObligations, nextDueDate } from "@/modules/contributions/contribution.service";
+import { effectiveObligationStatus, ensureObligations, isInPause, nextDueDate } from "@/modules/contributions/contribution.service";
 import { appendRotationSlot, listRotation, recomputeRotationDates } from "@/modules/rotations/rotation.service";
 import type { TontineFormValues } from "@/lib/validations";
 import { sumAmounts } from "@/lib/utils/money";
@@ -33,6 +33,7 @@ export function createTontine(ctx: Ctx, v: TontineFormValues): string {
       expectedMemberCount: v.expectedMemberCount,
       rotationMode: v.rotationMode,
       status: "DRAFT",
+      pauses: [],
       creatorId: ctx.userId,
       createdAt: now,
       updatedAt: now,
@@ -57,6 +58,8 @@ export function updateTontine(ctx: Ctx, input: { tontineId: string; name: string
     if (input.financial) {
       if (tontine.status !== "DRAFT") throw invalidState("Les paramètres financiers sont verrouillés après le démarrage.");
       const f = input.financial;
+      const active = s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").length;
+      if (f.expectedMemberCount < active) throw new AppError("VALIDATION", `Le nombre prévu ne peut pas être inférieur aux ${active} membres actuels.`, { expectedMemberCount: `Minimum : ${active}.` });
       tontine.contributionAmount = f.contributionAmount;
       tontine.frequency = f.frequency;
       tontine.frequencyConfig = frequencyConfigOf(f);
@@ -85,10 +88,28 @@ export function changeTontineStatus(ctx: Ctx, tontineId: string, transition: Ton
     const rule = TRANSITIONS[transition];
     if (!rule.from.includes(tontine.status)) throw invalidState(`Impossible de ${rule.label} une tontine dans l'état actuel.`);
     if (transition === "close" && (!reason || reason.trim().length < 3)) throw new AppError("VALIDATION", "Un motif est requis pour clôturer.");
+    if (transition === "close" && s.contributionObligations.some((o) => o.tontineId === tontineId && o.status === "DECLARED")) {
+      throw invalidState("Des paiements déclarés attendent encore votre validation : traitez-les avant de clôturer.");
+    }
     const old = tontine.status;
     tontine.status = rule.to;
     tontine.updatedAt = isoNow(ctx);
     if (transition === "close" && old === "DRAFT") tontine.status = "CANCELLED";
+    if (transition === "pause") {
+      tontine.pauses = [...tontine.pauses, { from: today(ctx), to: null }];
+      // Les échéances futures générées par anticipation, encore vierges, tombent dans la pause : on les retire.
+      const t = today(ctx);
+      const ahead = new Set(s.contributionPeriods.filter((p) => p.tontineId === tontineId && p.dueDate >= t).map((p) => p.id));
+      const untouched = (o: { id: string; periodId: string; status: string }) => ahead.has(o.periodId) && o.status === "PENDING" && !s.payments.some((p) => p.obligationId === o.id);
+      const keep = new Set(s.contributionObligations.filter((o) => ahead.has(o.periodId) && !untouched(o)).map((o) => o.periodId));
+      s.contributionObligations = s.contributionObligations.filter((o) => !untouched(o));
+      for (const p of s.contributionPeriods) if (ahead.has(p.id) && !keep.has(p.id)) p.status = "CLOSED";
+    }
+    if (transition === "resume") {
+      tontine.pauses = tontine.pauses.map((p) => (p.to === null ? { ...p, to: today(ctx) } : p));
+      // Périodes à venir fermées lors de la suspension mais désormais hors pause : rouvertes.
+      for (const p of s.contributionPeriods) if (p.tontineId === tontineId && p.status === "CLOSED" && p.dueDate >= today(ctx) && !isInPause(tontine, p.dueDate)) p.status = "OPEN";
+    }
     if (tontine.status === "ACTIVE") ensureObligations(s, ctx, tontine);
     audit(s, ctx, { tontineId, action: `tontine.${transition}`, entityType: "tontine", entityId: tontineId, oldValues: { status: old }, newValues: { status: tontine.status }, reason: reason?.trim() || null });
   });
@@ -183,7 +204,7 @@ export function getTontineOverview(ctx: Ctx, tontineId: string) {
       nextDueDate: nextDueDate(tontine, t),
       nextBeneficiary,
       mySlot: rotation.mySlot,
-      pendingInvitations: member.role === "ADMIN" ? s.invitations.filter((i) => i.tontineId === tontineId && i.status === "PENDING").length : 0,
+      pendingInvitations: member.role === "ADMIN" ? s.invitations.filter((i) => i.tontineId === tontineId && i.status === "PENDING" && new Date(i.expiresAt) > ctx.now).length : 0,
     };
 
     const mine = obligations.filter((o) => o.memberId === member.id);

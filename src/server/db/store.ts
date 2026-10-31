@@ -60,7 +60,7 @@ export interface DbState {
   jobRuns: Array<{ key: string; ranAt: string }>;
 }
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export function emptyState(): DbState {
   return {
@@ -87,7 +87,7 @@ const g = globalThis as typeof globalThis & { __kotiDb?: Holder };
 const holder: Holder = (g.__kotiDb ??= { state: null, seeding: false });
 
 const persistEnabled = process.env.NODE_ENV !== "test" && process.env.KOTI_DEMO_PERSIST !== "0";
-const dbPath = resolve(process.cwd(), process.env.KOTI_DEMO_DB_PATH ?? ".data/koti-demo.json");
+const dbPath = resolve(/* turbopackIgnore: true */ process.cwd(), process.env.KOTI_DEMO_DB_PATH ?? ".data/koti-demo.json");
 
 let seeder: ((state: DbState) => void) | null = null;
 
@@ -97,7 +97,8 @@ export function registerSeeder(fn: (state: DbState) => void) {
 }
 
 function load(): DbState {
-  if (holder.state) return holder.state;
+  if (holder.state?.version === SCHEMA_VERSION) return holder.state;
+  holder.state = null;
   if (persistEnabled && existsSync(dbPath)) {
     try {
       const parsed = JSON.parse(readFileSync(dbPath, "utf8")) as DbState;

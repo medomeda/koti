@@ -4,12 +4,12 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/forms/auth-forms";
 import { Alert } from "@/components/ui/feedback";
 import { getSession } from "@/lib/auth/session";
+import { isDemoMode } from "@/lib/demo";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/server/db/seed";
 import { safeNext } from "@/actions/_shared";
 
 export const metadata: Metadata = { title: "Connexion" };
 
-const demoEnabled = process.env.NODE_ENV !== "production" || process.env.KOTI_SHOW_DEMO_ACCOUNTS === "1";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; reset?: string }> }) {
   const { next, reset } = await searchParams;
@@ -28,7 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </div>
       {reset && <Alert tone="success">Le jeu de démonstration a été réinitialisé.</Alert>}
       {next?.startsWith("/invite/") && <Alert tone="brand">Connectez-vous (ou créez un compte) pour répondre à votre invitation.</Alert>}
-      <LoginForm next={target} demo={demoEnabled ? { password: DEMO_PASSWORD, accounts: DEMO_ACCOUNTS.map(({ email, fullName, hint }) => ({ email, fullName, hint })) } : undefined} />
+      <LoginForm next={target} demo={isDemoMode() ? { password: DEMO_PASSWORD, accounts: DEMO_ACCOUNTS.map(({ email, fullName, hint }) => ({ email, fullName, hint })) } : undefined} />
     </div>
   );
 }

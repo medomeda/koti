@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSession, destroySession } from "@/lib/auth/session";
+import { allowDemoReset } from "@/lib/demo";
 import { changePasswordSchema, idSchema, profileSchema, reorderRotationSchema } from "@/lib/validations";
 import { markAllRead, markRead } from "@/modules/notifications/notification.service";
 import { reorderRotation } from "@/modules/rotations/rotation.service";
@@ -51,7 +52,7 @@ export async function changePasswordAction(raw: unknown) {
 
 /** Réinitialise le jeu de démonstration (désactivé en production). */
 export async function resetDemoAction() {
-  if (process.env.NODE_ENV === "production" && process.env.KOTI_ALLOW_DEMO_RESET !== "1") return { ok: false as const, error: "Action désactivée en production." };
+  if (!allowDemoReset()) return { ok: false as const, error: "La réinitialisation est désactivée sur cette instance." };
   const result = await authed(z.object({}), {}, () => resetDatabase());
   if (!result.ok) return result;
   await destroySession();

@@ -108,8 +108,6 @@ export function seedDemo(s: DbState) {
   for (const [i, who] of ["mariam", "koffi", "awa", "ibrahim", "fatou", "seydou", "aminata"].entries()) invite("ahmed", famille, who, addDays(T, -49 + i));
   reorderRotation(c("ahmed", addDays(T, -42)), { tontineId: famille, memberIds: ["mariam", "ahmed", "awa", "koffi", "fatou", "ibrahim", "aminata", "seydou"].map((w) => memberIdOf(famille, w)) });
   changeTontineStatus(c("ahmed", addDays(T, -41)), famille, "activate");
-  // Les invitations sont envoyées par l'admin : on simule une invitation encore en attente.
-  createInvitation(c("ahmed", addDays(T, -2)), { tontineId: famille, email: null, phone: "+2250799887766" });
 
   // 2. Épargne Bureau — Ahmed admin, mensuelle.
   const bureau = createTontine(c("ahmed", addDays(T, -100)), {
@@ -152,6 +150,7 @@ export function seedDemo(s: DbState) {
   invite("ahmed", tabaski, "mariam", addDays(T, -4));
   createInvitation(c("ahmed", addDays(T, -3)), { tontineId: tabaski, email: "seydou@koti.demo", phone: null });
   createInvitation(c("ahmed", addDays(T, -1)), { tontineId: tabaski, email: "nouveau.membre@exemple.ci", phone: null });
+  createInvitation(c("ahmed", addDays(T, -2)), { tontineId: tabaski, email: null, phone: "+2250799887766" });
 
   // 5. Association Riviera — Koffi admin, invitation en attente pour Ahmed.
   const riviera = createTontine(c("koffi", addDays(T, -60)), {

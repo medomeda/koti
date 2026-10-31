@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/ui/feedback";
 import { Avatar } from "@/components/ui/misc";
 import { requireUser } from "@/lib/auth/session";
+import { allowDemoReset } from "@/lib/demo";
 import { formatDate } from "@/lib/utils/dates";
 import { getProfileStats } from "@/modules/users/user.service";
 import { ctxFor } from "@/server/context";
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Profil" };
 export default async function ProfilePage() {
   const user = await requireUser("/profile");
   const stats = getProfileStats(ctxFor(user.id));
-  const allowReset = process.env.NODE_ENV !== "production" || process.env.KOTI_ALLOW_DEMO_RESET === "1";
+  const allowReset = allowDemoReset();
   return (
     <>
       <PageHeader title="Profil" description="Vos informations personnelles et la sécurité de votre compte." />

@@ -39,7 +39,20 @@ export function recomputeRotationDates(s: DbState, ctx: Ctx, tontine: Tontine) {
 /** Ajoute un membre en fin d'ordre de passage (création, acceptation d'invitation). */
 export function appendRotationSlot(s: DbState, ctx: Ctx, tontine: Tontine, memberId: string) {
   if (s.rotationSlots.some((x) => x.tontineId === tontine.id && x.memberId === memberId && x.status !== "CANCELLED")) return;
-  const position = Math.max(0, ...s.rotationSlots.filter((x) => x.tontineId === tontine.id).map((x) => x.position)) + 1;
+  // Première position du cycle sans bénéficiaire actif ; un tour annulé qui l'occupait est repoussé en fin de liste.
+  const slots = s.rotationSlots.filter((x) => x.tontineId === tontine.id);
+  const maxPos = Math.max(0, ...slots.map((x) => x.position));
+  const todayDate = today(ctx);
+  let position = maxPos + 1;
+  for (let p = 1; p <= tontine.expectedMemberCount; p++) {
+    const occupant = slots.find((x) => x.position === p);
+    const date = dueDateForPeriod(tontine.frequency, tontine.startDate, p, tontine.frequencyConfig);
+    if (!occupant || (occupant.status === "CANCELLED" && (tontine.status === "DRAFT" || date >= todayDate))) {
+      if (occupant) occupant.position = maxPos + 1;
+      position = p;
+      break;
+    }
+  }
   s.rotationSlots.push({
     id: newId(),
     tontineId: tontine.id,

@@ -77,5 +77,13 @@ export function failureLimiter(key: string, max: number, windowMs: number) {
 
 /** N'autorise que des redirections internes (évite les redirections ouvertes). */
 export function safeNext(next: unknown, fallback = "/"): string {
-  return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : fallback;
+  if (typeof next !== "string" || !next.startsWith("/") || next.length > 512) return fallback;
+  // Rejette caractères de contrôle et antislash (« /\t/evil.com » deviendrait « //evil.com »).
+  if (/[\u0000-\u001f\u007f\\]/.test(next)) return fallback;
+  try {
+    const url = new URL(next, "http://koti.local");
+    return url.origin === "http://koti.local" ? url.pathname + url.search + url.hash : fallback;
+  } catch {
+    return fallback;
+  }
 }

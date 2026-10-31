@@ -27,8 +27,9 @@ export function listMembers(ctx: Ctx, tontineId: string, opts: { includeFormer?:
     const { tontine, member: me } = requireAccess(s, ctx, tontineId, "member.view");
     const isAdmin = me.role === "ADMIN";
     const t = today(ctx);
+    const includeFormer = isAdmin && !!opts.includeFormer;
     const members: MemberView[] = s.tontineMembers
-      .filter((m) => m.tontineId === tontineId && (opts.includeFormer || m.status === "ACTIVE"))
+      .filter((m) => m.tontineId === tontineId && (includeFormer || m.status === "ACTIVE"))
       .map((m) => {
         const profile = s.userProfiles.find((p) => p.userId === m.userId);
         const user = s.users.find((u) => u.id === m.userId);

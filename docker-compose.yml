@@ -1,0 +1,24 @@
+# Déploiement Coolify de la VERSION DE DÉMONSTRATION (données fictives, sans base de données).
+# Guide : docs/DEPLOIEMENT_COOLIFY.md
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Généré et conservé par Coolify (secret des routes d'administration /api/v1/*).
+      CRON_SECRET: ${SERVICE_HEX_64_CRONSECRET}
+      KOTI_DEMO_MODE: ${KOTI_DEMO_MODE:-1}
+      KOTI_ALLOW_DEMO_RESET: ${KOTI_ALLOW_DEMO_RESET:-0}
+      # Derrière le proxy Traefik de Coolify : IP client lue dans X-Forwarded-For.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+    volumes:
+      - demo-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3700/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  demo-data:

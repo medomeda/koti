@@ -22,15 +22,15 @@ export function ObligationRow({ o, today, showTontine = true }: { o: ObligationV
           {showTontine && <>N°{o.periodNumber} · </>}
           {formatDate(o.dueDate)} <span className="text-xs">({relativeDays(o.dueDate, today)})</span>
         </p>
-        {o.status === "REJECTED" && o.lastPayment?.rejectionReason && <p className="mt-1 text-xs text-destructive-soft-foreground">Motif du refus : {o.lastPayment.rejectionReason}</p>}
+        {o.rejected && o.lastPayment?.rejectionReason && <p className="mt-1 text-xs text-destructive-soft-foreground">Motif du refus : {o.lastPayment.rejectionReason}</p>}
       </div>
       <div className="flex w-full items-center gap-3 sm:w-auto">
         <span className="mr-auto font-semibold tabular-nums sm:mr-0">{formatFCFA(o.expectedAmount)}</span>
         <ObligationStatusBadge status={o.status} />
         {o.canDeclare && (
           <DeclarePaymentButton
-            target={{ id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, rejectionReason: o.status === "REJECTED" ? o.lastPayment?.rejectionReason : null }}
-            label={o.status === "REJECTED" ? "Redéclarer" : "Déclarer"}
+            target={{ id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null }}
+            label={o.rejected ? "Redéclarer" : "Déclarer"}
           />
         )}
       </div>

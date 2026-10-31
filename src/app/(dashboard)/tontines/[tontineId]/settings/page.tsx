@@ -71,6 +71,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ tonti
           </CardHeader>
           <CardContent>
             <TontineSettingsForm
+              key={tontine.updatedAt}
               tontineId={tontine.id}
               readOnly={readOnly}
               financialEditable={tontine.status === "DRAFT"}
