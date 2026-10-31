@@ -32,7 +32,7 @@ function CountBadge({ count, className }: { count: number; className?: string })
   return <span className={cn("min-w-5 rounded-full bg-destructive px-1.5 text-center text-[11px] font-semibold leading-5 text-white tabular-nums", className)}>{count > 99 ? "99+" : count}</span>;
 }
 
-export function AppShell({ user, unread, pendingPayments, children }: { user: ShellUser; unread: number; pendingPayments: number; children: ReactNode }) {
+export function AppShell({ user, unread, pendingPayments, banner, children }: { user: ShellUser; unread: number; pendingPayments: number; banner?: ReactNode; children: ReactNode }) {
   const pathname = usePathname();
   const badgeFor = (href: string) => (href === "/alerts" ? unread : href === "/payments" ? pendingPayments : 0);
 
@@ -66,6 +66,8 @@ export function AppShell({ user, unread, pendingPayments, children }: { user: Sh
         </nav>
         <p className="px-3 text-[11px] leading-snug text-sidebar-muted">KOTI ne détient ni ne transfère aucun fonds. Les paiements sont déclarés par les membres et validés par l&apos;administrateur.</p>
       </aside>
+
+      {banner}
 
       {/* En-tête */}
       <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-card/90 px-4 backdrop-blur sm:px-6">

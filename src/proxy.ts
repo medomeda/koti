@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Ce n'est pas un contrôle de sécurité : chaque page, Server Action et Route Handler
  * revérifie la session et les permissions côté serveur.
  */
-const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/api/"];
+const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/api/", "/guide"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

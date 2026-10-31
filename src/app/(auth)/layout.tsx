@@ -1,9 +1,16 @@
 import { CalendarCheck2, ShieldCheck, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/layout/brand";
+import { DemoBanner } from "@/components/layout/demo-banner";
+import { isDemoMode } from "@/lib/demo";
+
+// Le bandeau dépend de KOTI_DEMO_MODE, lu à l'exécution : pas de pré-rendu statique.
+export const dynamic = "force-dynamic";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
+    <>
+    {isDemoMode() && <DemoBanner />}
     <div className="grid min-h-dvh lg:grid-cols-[1fr_minmax(0,560px)]">
       <aside className="relative hidden overflow-hidden bg-sidebar p-10 text-white lg:flex lg:flex-col">
         <Brand dark />
@@ -31,5 +38,6 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto my-auto w-full max-w-sm py-8">{children}</div>
       </main>
     </div>
+    </>
   );
 }

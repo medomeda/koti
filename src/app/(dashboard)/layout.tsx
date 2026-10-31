@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { DemoBanner } from "@/components/layout/demo-banner";
+import { isDemoMode } from "@/lib/demo";
 import { requireUser } from "@/lib/auth/session";
 import { unreadCount } from "@/modules/notifications/notification.service";
 import { listMyObligations } from "@/modules/payments/payment.service";
@@ -16,7 +18,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   syncUserTontines(ctx);
   const { toPay } = listMyObligations(ctx);
   return (
-    <AppShell user={{ fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl }} unread={unreadCount(ctx)} pendingPayments={toPay.filter((o) => o.canDeclare).length}>
+    <AppShell user={{ fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl }} unread={unreadCount(ctx)} pendingPayments={toPay.filter((o) => o.canDeclare).length} banner={isDemoMode() ? <DemoBanner /> : undefined}>
       {children}
     </AppShell>
   );
