@@ -5,7 +5,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * Ce n'est pas un contrôle de sécurité : chaque page, Server Action et Route Handler
  * revérifie la session et les permissions côté serveur.
  */
-const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/api/", "/guide"];
+// Fichiers de la PWA (/sw.js, /offline, /manifest.webmanifest) : accessibles sans session, sans aucune donnée.
+const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/api/", "/guide", "/sw.js", "/offline", "/manifest.webmanifest"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

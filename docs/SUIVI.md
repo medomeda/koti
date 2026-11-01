@@ -21,14 +21,14 @@ utilisateurs sur l'interface et arbitrage des questions ouvertes (section 4).
 | 01 | Initialisation Next.js | ✅ Next 16, TS strict, Tailwind 4, Zod 4 | ⬜ Drizzle, PostgreSQL, variables |
 | 02 | Modèle de données | ✅ Types (`src/types/domain.ts`) + base simulée | ⬜ Schéma Drizzle, migrations, index |
 | 03 | Authentification | ✅ Inscription, connexion, sessions, mot de passe (simulés) | ⬜ Better Auth, vérification e-mail, reset |
-| 04 | Layout et navigation | ✅ Barre latérale, navigation mobile, états | — |
+| 04 | Layout et navigation | ✅ Barre latérale, navigation mobile, états, **PWA installable** | — |
 | 05 | Tontines | ✅ Création, paramètres, cycle de vie | ⬜ Persistance |
 | 06 | Tableau de bord | ✅ | ⬜ Persistance |
 | 07 | Invitations et membres | ✅ Lien sécurisé, acceptation, retrait | ⬜ Envoi e-mail / SMS |
 | 08 | Échéances | ✅ Moteur de fréquence testé | ⬜ Persistance |
 | 09 | Paiements | ✅ Déclaration, validation, refus, historique, filtres, regroupements | ⬜ Justificatifs (stockage privé) |
 | 10 | Tours de main | ✅ Ordre, calendrier, historisation | ⬜ Persistance |
-| 11 | Notifications | ✅ Internes, rappels, retards | ⬜ E-mails, cron réel |
+| 11 | Notifications | ✅ Internes, rappels, retards | ⬜ E-mails, push PWA, cron réel |
 | 12 | Sécurité et audit | ✅ Relecture indépendante, 10 correctifs | ⬜ Revue après bascule |
 | 13 | Tests et recette | ✅ 46 tests (scénarios PRD 1 à 8) | ⬜ Tests d'intégration base + e2e navigateur |
 | 14 | Mise en production | — | ⬜ Hébergement, sauvegardes, HTTPS |
@@ -37,6 +37,7 @@ utilisateurs sur l'interface et arbitrage des questions ouvertes (section 4).
 
 | Date | Livraison |
 |---|---|
+| 01/11/2026 | **Application installable (PWA), phase 1** : manifeste et icônes, installation Android (bouton) et iPhone (aide pas à pas), message « Nouvelle version disponible — Mettre à jour » après chaque déploiement, page hors ligne, cache limité aux fichiers techniques (aucune donnée sur l'appareil), cache vidé à la déconnexion. Testé : installabilité Chrome, hors ligne, passage v1 → v2. |
 | 31/10/2026 | **Version de démonstration déployable sur Coolify** : image Docker autonome, volume de données, bandeau « démonstration », page `/guide` pour les testeurs, réinitialisation protégée par secret, sonde `/api/health`. Guide : [DEPLOIEMENT_COOLIFY.md](DEPLOIEMENT_COOLIFY.md). |
 | 31/10/2026 | Mobile : « Alertes » retiré de la barre du bas (4 entrées), accès par la cloche de l'en-tête qui affiche le nombre de non-lues. **Écart volontaire au PRD §4.2** (5 entrées), à la demande du porteur de projet. |
 | 31/10/2026 | Paiements d'une tontine : filtre par membre, affichage **par échéance / par membre / liste**, sections repliables avec synthèse (payés, collecté, retards, à valider), filtres dans l'URL. |
@@ -68,6 +69,7 @@ facile à changer. **Statuts :** 🟡 en attente · ✅ tranchée · ⚪ abandon
 | 4 | Justificatifs et photo de profil | Stockage privé + téléchargement contrôlé. | À faire |
 | 5 | Envoi des invitations et rappels | E-mail (et SMS si retenu, cf. Q-06). | À faire |
 | 6 | Tests e2e navigateur | Les parcours Playwright (dont le parcours testeur en mode production) tournent hors dépôt ; en faire une vraie suite. | À faire |
+| 8 | Notifications push (PWA phase 2) | Rappels d'échéance et validation de paiement sur le téléphone (Android, et iPhone si l'application est installée). Nécessite le backend : clés VAPID, enregistrement des abonnements. | À faire (phase 2) |
 | 7 | Test de l'image Docker | Le serveur autonome a été testé en mode production ; l'image elle-même pas en local (Docker Desktop éteint). La valider au premier déploiement Coolify. | À faire |
 
 ## 6. État de qualité (dernière vérification : 31/10/2026)

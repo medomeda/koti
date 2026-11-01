@@ -1,6 +1,7 @@
 import { CircleAlert, Clock, Mail, Plus, Users, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { InstallCard } from "@/components/pwa/install-prompt";
 import { ObligationRow } from "@/components/shared/obligation-row";
 import { TontineCard } from "@/components/shared/tontine-card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,8 @@ export default async function HomePage() {
           </Link>
         </Button>
       </div>
+
+      <InstallCard />
 
       {invitations.length > 0 && (
         <Alert

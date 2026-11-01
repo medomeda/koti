@@ -15,6 +15,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Fourni par Coolify : identifie la version installée sur les téléphones (PWA). Vide → horodatage.
+ARG SOURCE_COMMIT=""
+ENV SOURCE_COMMIT=$SOURCE_COMMIT
 RUN npm run build
 
 # --- 3. Image d'exécution (sans outils de compilation, utilisateur non root) ---
@@ -24,6 +27,7 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3700 HOSTNAME=0.0.0.0
 # Données de démonstration persistées dans un volume (voir docker-compose.yml).
 ENV KOTI_DEMO_DB_PATH=/data/koti-demo.json
 RUN mkdir -p /data && chown -R node:node /data
+COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 USER node

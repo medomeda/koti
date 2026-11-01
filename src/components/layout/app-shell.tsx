@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { logoutAction } from "@/actions/auth";
+import { clearAppCaches } from "@/components/pwa/pwa-store";
 import { Avatar, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/misc";
 import { cn } from "@/lib/utils/cn";
 import { Brand } from "./brand";
@@ -98,7 +99,7 @@ export function AppShell({ user, unread, pendingPayments, banner, children }: { 
                 <CircleUserRound /> Mon profil
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem destructive onSelect={() => void logoutAction()}>
+            <DropdownMenuItem destructive onSelect={() => void clearAppCaches().then(() => logoutAction())}>
               <LogOut /> Se déconnecter
             </DropdownMenuItem>
           </DropdownMenuContent>

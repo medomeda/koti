@@ -64,7 +64,17 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
 - Les dates du jeu de démo sont calculées le jour de sa création : pour une campagne longue, réinitialisez de temps en
   temps pour garder des échéances « à venir » réalistes.
 
-## 7. Dépannage
+## 7. Application installable (PWA) et mises à jour
+
+KOTI s'installe sur l'écran d'accueil (Android : bouton « Installer », iPhone : Partager → « Sur l'écran d'accueil »).
+Chaque déploiement porte un identifiant de version (commit fourni par Coolify via `SOURCE_COMMIT`, sinon l'heure du build) :
+les applications installées le détectent et affichent **« Nouvelle version disponible — Mettre à jour »**.
+Rien à faire de votre côté après un `Deploy`. Le HTTPS est indispensable (le service worker ne fonctionne pas en `http://`).
+
+À savoir : une installation est liée au **domaine**. Les testeurs qui installent la démo devront réinstaller quand KOTI
+passera sur le domaine de production.
+
+## 8. Dépannage
 
 | Symptôme | Cause probable |
 |---|---|
@@ -74,12 +84,12 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
 | Réinitialisation : `401` | Secret incorrect, ou `KOTI_DEMO_MODE` désactivé. |
 | Données perdues après suppression de la ressource | Le volume `demo-data` a été supprimé avec elle (sans gravité : le jeu de démo est recréé). |
 
-## 8. Ce que cette version n'est pas
+## 9. Ce que cette version n'est pas
 
 Une instance de **démonstration** : pas de base PostgreSQL, pas d'e-mails réels, comptes publics.
 Ne jamais y saisir de données réelles. La version de production arrivera avec la phase 2 (voir `SUIVI.md`).
 
-## 9. Test local de l'image (optionnel)
+## 10. Test local de l'image (optionnel)
 
 Avec Docker Desktop lancé :
 

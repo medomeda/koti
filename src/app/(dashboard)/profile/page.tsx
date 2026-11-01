@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AccountActions, PasswordForm, ProfileForm } from "@/components/forms/profile-forms";
+import { InstallSection } from "@/components/pwa/install-prompt";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/feedback";
@@ -53,6 +54,17 @@ export default async function ProfilePage() {
             </CardHeader>
             <CardContent>
               <PasswordForm />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Application</CardTitle>
+                <CardDescription>Installez KOTI sur l&apos;écran d&apos;accueil de votre téléphone.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <InstallSection />
             </CardContent>
           </Card>
           <Card>

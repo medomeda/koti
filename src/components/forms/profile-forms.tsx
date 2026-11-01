@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { logoutAction } from "@/actions/auth";
+import { clearAppCaches } from "@/components/pwa/pwa-store";
 import { changePasswordAction, resetDemoAction, updateProfileAction } from "@/actions/misc";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useAction } from "@/components/shared/use-action";
@@ -86,11 +87,9 @@ export function AccountActions({ allowReset }: { allowReset: boolean }) {
   const [confirm, setConfirm] = useState(false);
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
-      <form action={logoutAction}>
-        <Button type="submit" variant="outline" className="w-full sm:w-auto">
-          <LogOut /> Se déconnecter
-        </Button>
-      </form>
+      <Button variant="outline" className="w-full sm:w-auto" onClick={() => void clearAppCaches().then(() => logoutAction())}>
+        <LogOut /> Se déconnecter
+      </Button>
       {allowReset && (
         <>
           <Button variant="ghost" onClick={() => setConfirm(true)}>
