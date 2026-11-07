@@ -27,7 +27,14 @@ export async function loginAction(raw: unknown, next?: string): Promise<ActionRe
   const ip = await clientKey();
   const byIp = ip ? failureLimiter(`login-ip:${ip}`, 30, 15 * 60_000) : null;
   if (byEmail.blocked() || byIp?.blocked()) return { ok: false, error: "Trop de tentatives échouées. Patientez quelques minutes avant de réessayer." };
-  const userId = authenticate(email, password);
+  let userId: string | null;
+  try {
+    userId = authenticate(email, password);
+  } catch (err) {
+    // Compte suspendu : le mot de passe est correct, le message l'explique.
+    if (err instanceof AppError) return { ok: false, error: err.message };
+    throw err;
+  }
   if (!userId) {
     byEmail.fail();
     byIp?.fail();

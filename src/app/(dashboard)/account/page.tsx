@@ -1,0 +1,151 @@
+import { Receipt } from "lucide-react";
+import type { Metadata } from "next";
+import { PlanPicker } from "@/components/shared/plan-picker";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, EmptyState, PageHeader } from "@/components/ui/feedback";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { requireUser } from "@/lib/auth/session";
+import { PLANS } from "@/lib/marketing/plans";
+import { cn } from "@/lib/utils/cn";
+import { formatDate } from "@/lib/utils/dates";
+import { formatFCFA } from "@/lib/utils/money";
+import { getAccount } from "@/modules/billing/billing.service";
+import { ctxFor } from "@/server/context";
+
+export const metadata: Metadata = { title: "Mon abonnement" };
+
+function Meter({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  const over = used > limit;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span>{label}</span>
+        <span className={cn("tabular-nums", over ? "font-semibold text-destructive" : used >= limit ? "font-semibold text-warning" : "text-muted-foreground")}>
+          {used} / {limit}
+        </span>
+      </div>
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${label} : ${used} sur ${limit}`}>
+        <div className={cn("h-full rounded-full", over ? "bg-destructive" : used >= limit ? "bg-warning" : "bg-primary")} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export default async function AccountPage() {
+  const user = await requireUser("/account");
+  const a = getAccount(ctxFor(user.id));
+  const sub = a.subscription;
+  const paid = a.plan.monthlyPrice > 0;
+  return (
+    <>
+      <PageHeader title="Mon abonnement" description="Votre offre, votre consommation et vos factures." back={{ href: "/profile", label: "Profil" }} />
+      <Alert tone="warning" className="mb-5">
+        Version de démonstration : les paiements d&apos;abonnement sont simulés et aucune somme n&apos;est prélevée.
+      </Alert>
+
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Offre actuelle</CardTitle>
+              <CardDescription>Seul l&apos;organisateur d&apos;une tontine a une offre. Participer à une tontine reste gratuit.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xl font-semibold">{a.plan.name}</p>
+              {sub?.status === "TRIAL" ? <Badge tone="warning">Essai gratuit</Badge> : <Badge tone="success">Active</Badge>}
+            </div>
+            <p className="text-sm text-muted-foreground">{paid ? `${formatFCFA(a.plan.monthlyPrice)} par mois` : "Gratuite"}</p>
+            {sub?.status === "TRIAL" && sub.trialEndsAt && (
+              <p className="text-sm">
+                Essai gratuit jusqu&apos;au <strong>{formatDate(sub.trialEndsAt.slice(0, 10))}</strong> ({a.trialDaysLeft} jour{(a.trialDaysLeft ?? 0) > 1 ? "s" : ""} restant{(a.trialDaysLeft ?? 0) > 1 ? "s" : ""}). La première facture suivra.
+              </p>
+            )}
+            {sub?.status === "ACTIVE" && paid && sub.currentPeriodEnd && (
+              <p className="text-sm">
+                Prochaine facture le <strong>{formatDate(sub.currentPeriodEnd)}</strong>.
+              </p>
+            )}
+            {!paid && sub?.canceledAt && <p className="text-sm text-muted-foreground">Retour à l&apos;offre gratuite le {formatDate(sub.canceledAt.slice(0, 10))}.</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Consommation</CardTitle>
+              <CardDescription>Par rapport aux limites de votre offre.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Meter label="Tontines en cours" used={a.usage.tontines.length} limit={a.plan.limits.tontines} />
+            {a.usage.tontines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Vous n&apos;organisez aucune tontine pour l&apos;instant.</p>
+            ) : (
+              <ul className="divide-y rounded-lg border">
+                {a.usage.tontines.map((t) => (
+                  <li key={t.id} className="space-y-2 px-3 py-3">
+                    <p className="text-sm font-medium">{t.name}</p>
+                    <Meter label="Membres" used={t.members} limit={a.plan.limits.membersPerTontine} />
+                    <Meter label="Tickets" used={t.tickets} limit={a.plan.limits.ticketsPerTontine} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <section aria-labelledby="offres" className="mt-8">
+        <h2 id="offres" className="mb-3 text-lg font-semibold">
+          Changer d&apos;offre
+        </h2>
+        <PlanPicker plans={PLANS} currentId={a.plan.id} blockers={a.blockers} trialAvailable={!sub?.trialUsed} />
+      </section>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <div>
+            <CardTitle>Factures</CardTitle>
+            <CardDescription>Factures simulées : elles n&apos;ont aucune valeur comptable.</CardDescription>
+          </div>
+        </CardHeader>
+        {a.invoices.length === 0 ? (
+          <EmptyState icon={<Receipt />} title="Aucune facture" description="Votre première facture apparaîtra quand vous choisirez une offre payante." />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Numéro</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Période</TableHead>
+                <TableHead>Offre</TableHead>
+                <TableHead className="text-right">Montant</TableHead>
+                <TableHead>Statut</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {a.invoices.map((i) => (
+                <TableRow key={i.id}>
+                  <TableCell className="font-medium tabular-nums">{i.number}</TableCell>
+                  <TableCell>{formatDate(i.issuedAt.slice(0, 10))}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(i.periodStart)} au {formatDate(i.periodEnd)}
+                  </TableCell>
+                  <TableCell>{i.planName}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatFCFA(i.amount)}</TableCell>
+                  <TableCell>
+                    <Badge tone="success">Payée (simulée)</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+    </>
+  );
+}

@@ -2,6 +2,7 @@ import "server-only";
 import { audit } from "@/modules/audit/audit.service";
 import { effectiveObligationStatus, ensureObligations, isInPause, nextDueDate } from "@/modules/contributions/contribution.service";
 import { listRotation, recomputeRotationDates, startCycle } from "@/modules/rotations/rotation.service";
+import { assertCanCreateTontine, assertSettingsFit } from "@/modules/billing/quota";
 import { activeTickets, cycleLength, memberActiveTickets } from "@/modules/tickets/ticket.rules";
 import { issueTicket } from "@/modules/tickets/ticket.service";
 import type { TontineFormValues } from "@/lib/validations";
@@ -27,6 +28,9 @@ function ticketPolicyOf(v: { multipleTicketsAllowed?: boolean; maxTicketsPerMemb
 /** Création (PRD §6.8) : tontine + adhésion ADMIN acceptée + 1er tour, dans une seule transaction. */
 export function createTontine(ctx: Ctx, v: TontineFormValues): string {
   return tx((s) => {
+    // Quotas de l'offre : nombre de tontines, taille, tickets multiples.
+    assertCanCreateTontine(s, ctx.userId);
+    assertSettingsFit(s, ctx.userId, { expectedMemberCount: v.expectedMemberCount, multipleTicketsAllowed: ticketPolicyOf(v).multipleTicketsAllowed });
     const id = newId();
     const now = isoNow(ctx);
     const tontine: Tontine = {
@@ -72,6 +76,7 @@ export function updateTontine(ctx: Ctx, input: { tontineId: string; name: string
       const active = s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").length;
       if (f.expectedMemberCount < active) throw new AppError("VALIDATION", `Le nombre prévu ne peut pas être inférieur aux ${active} membres actuels.`, { expectedMemberCount: `Minimum : ${active}.` });
       const policy = ticketPolicyOf(f);
+      assertSettingsFit(s, tontine.creatorId, { expectedMemberCount: f.expectedMemberCount, multipleTicketsAllowed: policy.multipleTicketsAllowed }, { expectedMemberCount: tontine.expectedMemberCount, multipleTicketsAllowed: tontine.multipleTicketsAllowed });
       const mostTickets = Math.max(0, ...s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").map((m) => memberActiveTickets(s, m.id).length));
       if (mostTickets > policy.maxTicketsPerMember) {
         throw new AppError("VALIDATION", `Un membre détient déjà ${mostTickets} tickets : supprimez d'abord les tickets en trop avant de réduire le maximum.`, { maxTicketsPerMember: `Minimum : ${mostTickets}.` });

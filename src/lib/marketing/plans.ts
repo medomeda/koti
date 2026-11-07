@@ -2,7 +2,9 @@
  * Offres commerciales. Source unique : le site vitrine l'affiche aujourd'hui, les quotas
  * (étape 2 du chantier SaaS) l'appliqueront côté serveur. Prix FICTIFS (version de démonstration).
  */
-export type PlanId = "FREE" | "PRO" | "ASSOCIATION";
+import type { PlanId } from "@/types/domain";
+
+export type { PlanId };
 
 export interface Plan {
   id: PlanId;
@@ -10,7 +12,7 @@ export interface Plan {
   /** Prix mensuel en FCFA (0 = gratuit). */
   monthlyPrice: number;
   tagline: string;
-  limits: { tontines: number; membersPerTontine: number; ticketsPerTontine: number };
+  limits: { tontines: number; membersPerTontine: number; ticketsPerTontine: number; multipleTickets: boolean };
   features: Array<{ label: string; soon?: boolean }>;
   highlighted?: boolean;
   cta: string;
@@ -22,7 +24,7 @@ export const PLANS: Plan[] = [
     name: "Découverte",
     monthlyPrice: 0,
     tagline: "Pour lancer une première tontine entre proches.",
-    limits: { tontines: 1, membersPerTontine: 10, ticketsPerTontine: 10 },
+    limits: { tontines: 1, membersPerTontine: 10, ticketsPerTontine: 10, multipleTickets: false },
     features: [{ label: "Suivi des cotisations et validation des paiements" }, { label: "Ordre des tours de main" }, { label: "Invitations par lien" }, { label: "Application installable sur téléphone" }],
     cta: "Commencer gratuitement",
   },
@@ -31,7 +33,7 @@ export const PLANS: Plan[] = [
     name: "Organisateur",
     monthlyPrice: 5000,
     tagline: "Pour celles et ceux qui animent plusieurs tontines.",
-    limits: { tontines: 5, membersPerTontine: 50, ticketsPerTontine: 100 },
+    limits: { tontines: 5, membersPerTontine: 50, ticketsPerTontine: 100, multipleTickets: true },
     features: [
       { label: "Tout ce que contient Découverte" },
       { label: "Tickets multiples : plusieurs parts par membre" },
@@ -46,7 +48,7 @@ export const PLANS: Plan[] = [
     name: "Association",
     monthlyPrice: 15000,
     tagline: "Pour les grands groupes et les associations de quartier.",
-    limits: { tontines: 25, membersPerTontine: 200, ticketsPerTontine: 400 },
+    limits: { tontines: 25, membersPerTontine: 200, ticketsPerTontine: 400, multipleTickets: true },
     features: [{ label: "Tout ce que contient Organisateur" }, { label: "Support prioritaire" }, { label: "Accompagnement à la prise en main" }],
     cta: "Parler à l'équipe",
   },

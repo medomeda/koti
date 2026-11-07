@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { createTontineAction } from "@/actions/tontines";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert } from "@/components/ui/feedback";
+import Link from "next/link";
 import { Field, FormError } from "@/components/ui/field";
 import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { FREQUENCY_LABEL, FREQUENCY_UNIT, WEEKDAY_LABEL } from "@/lib/constants/labels";
@@ -20,7 +22,16 @@ import { FREQUENCIES, type Weekday } from "@/types/domain";
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0] as Weekday[];
 
-export function TontineForm() {
+export interface TontineQuota {
+  planName: string;
+  tontinesUsed: number;
+  tontinesLimit: number;
+  maxMembers: number;
+  multipleTickets: boolean;
+}
+
+export function TontineForm({ quota }: { quota: TontineQuota }) {
+  const limitReached = quota.tontinesUsed >= quota.tontinesLimit;
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const { register, handleSubmit, control, formState, setError } = useForm<TontineFormInput, unknown, TontineFormValues>({
@@ -143,16 +154,21 @@ export function TontineForm() {
               <Field label="Date de démarrage" required error={e.startDate?.message} hint="Date de la première échéance.">
                 {(p) => <Input {...p} {...register("startDate")} type="date" />}
               </Field>
-              <Field label="Nombre de membres prévu" required error={e.expectedMemberCount?.message} hint="Nombre maximum de personnes. Le cycle compte un tour par ticket.">
+              <Field label="Nombre de membres prévu" required error={e.expectedMemberCount?.message} hint={`Nombre maximum de personnes (${quota.maxMembers} avec votre offre). Le cycle compte un tour par ticket.`}>
                 {(p) => <Input {...p} {...register("expectedMemberCount")} type="number" inputMode="numeric" min={2} max={100} />}
               </Field>
             </div>
             <div className="space-y-3 rounded-lg border border-dashed p-3">
               <label className="flex items-start gap-3 text-sm">
-                <input type="checkbox" className="mt-0.5 size-4 accent-[var(--primary)]" {...register("multipleTicketsAllowed")} />
+                <input type="checkbox" className="mt-0.5 size-4 accent-[var(--primary)]" disabled={!quota.multipleTickets} {...register("multipleTicketsAllowed")} />
                 <span>
                   <span className="font-medium">Autoriser les tickets multiples</span>
                   <span className="block text-muted-foreground">Un même membre peut détenir plusieurs tickets (chacun cotise et reçoit un tour). Seul l&apos;administrateur attribue les tickets, avant le démarrage.</span>
+                  {!quota.multipleTickets && (
+                    <span className="mt-1 block text-warning-soft-foreground">
+                      Non inclus dans l&apos;offre « {quota.planName} ». <Link href="/account" className="font-medium underline">Voir les offres</Link>
+                    </span>
+                  )}
                 </span>
               </label>
               {v.multipleTicketsAllowed && (
@@ -208,9 +224,17 @@ export function TontineForm() {
           </CardContent>
         </Card>
         <p className="px-1 text-xs text-muted-foreground">Vous serez automatiquement administrateur et membre de cette tontine : vous cotisez comme les autres participants.</p>
+        {limitReached && (
+          <Alert tone="warning" title="Limite de votre offre atteinte">
+            L&apos;offre « {quota.planName} » permet {quota.tontinesLimit} tontine{quota.tontinesLimit > 1 ? "s" : ""} en cours.{" "}
+            <Link href="/account" className="font-medium underline">
+              Voir les offres
+            </Link>
+          </Alert>
+        )}
         <FormError message={formError} />
         <div className="flex flex-col gap-2">
-          <Button type="submit" size="lg" loading={formState.isSubmitting}>
+          <Button type="submit" size="lg" loading={formState.isSubmitting} disabled={limitReached}>
             Créer la tontine
           </Button>
           <Button variant="ghost" onClick={() => router.back()}>

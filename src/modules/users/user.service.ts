@@ -1,5 +1,6 @@
 import "server-only";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "@/lib/auth/password";
+import { ensureSubscription } from "@/modules/billing/billing.service";
 import { isoNow, type Ctx } from "@/server/context";
 import { read, tx, type DbState } from "@/server/db/store";
 import { AppError } from "@/server/errors";
@@ -10,7 +11,8 @@ export function registerUser(s: DbState, input: { fullName: string; email: strin
   if (s.userProfiles.some((p) => p.phone === input.phone)) throw new AppError("CONFLICT", "Ce numéro est déjà associé à un compte.", { phone: "Numéro déjà utilisé." });
   const id = newId();
   const now = input.now.toISOString();
-  s.users.push({ id, email: input.email, emailVerified: false, createdAt: now });
+  s.users.push({ id, email: input.email, emailVerified: false, platformRole: "USER", status: "ACTIVE", createdAt: now });
+  ensureSubscription(s, id, input.now);
   s.credentials.push({ userId: id, passwordHash: input.passwordHash ?? hashPassword(input.password) });
   s.userProfiles.push({ userId: id, fullName: input.fullName, phone: input.phone, avatarUrl: null, createdAt: now, updatedAt: now });
   // Phase backend : Better Auth envoie l'e-mail de vérification.
@@ -27,10 +29,13 @@ export function authenticate(email: string, password: string): string | null {
   const found = read((s) => {
     const user = s.users.find((u) => u.email === email);
     const cred = user && s.credentials.find((c) => c.userId === user.id);
-    return user && cred ? { id: user.id, hash: cred.passwordHash } : null;
+    return user && cred ? { id: user.id, hash: cred.passwordHash, suspended: user.status === "SUSPENDED" } : null;
   });
   const ok = verifyPassword(password, found?.hash ?? DUMMY_HASH);
-  return ok && found ? found.id : null;
+  if (!ok || !found) return null;
+  // Compte suspendu par l'équipe KOTI : connexion refusée (mot de passe pourtant correct).
+  if (found.suspended) throw new AppError("FORBIDDEN", "Ce compte est suspendu. Contactez l'équipe KOTI pour en savoir plus.");
+  return found.id;
 }
 
 export function updateProfile(ctx: Ctx, input: { fullName: string; phone: string }) {

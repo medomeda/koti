@@ -2,6 +2,7 @@ import "server-only";
 import { hashPassword } from "@/lib/auth/password";
 import { addDays, parseISODate, todayISO } from "@/lib/utils/dates";
 import { ensureObligations } from "@/modules/contributions/contribution.service";
+import { changePlan } from "@/modules/billing/billing.service";
 import { acceptInvitation, createInvitation } from "@/modules/invitations/invitation.service";
 import { declarePayment, rejectPayment, validatePayment } from "@/modules/payments/payment.service";
 import { removeMember } from "@/modules/members/member.service";
@@ -56,10 +57,15 @@ export function seedDemo(s: DbState) {
   for (const u of [...DEMO_ACCOUNTS, ...OTHERS]) {
     ids[u.email.split("@")[0]!] = registerUser(s, { fullName: u.fullName, email: u.email, phone: u.phone, password: "", passwordHash: hash, now: at(addDays(T, -150)) });
   }
+  // Équipe KOTI : opérateur de la plateforme (espace d'administration, étape 3 du chantier SaaS).
+  ids.operateur = registerUser(s, { fullName: "Équipe KOTI", email: "operateur@koti.demo", phone: "+2250700000000", password: "", passwordHash: hash, now: at(addDays(T, -200)) });
+  s.users.find((u) => u.id === ids.operateur)!.platformRole = "SUPER_ADMIN";
   for (const u of s.users) u.emailVerified = true;
   const c = (who: string, date: string, hour = 10): Ctx => ({ userId: ids[who]!, now: at(date, hour) });
   const random = rng(42);
   const methods: PaymentMethod[] = ["MOBILE_MONEY", "MOBILE_MONEY", "CASH", "BANK_TRANSFER"];
+  // Ahmed organise 3 tontines dont une à tickets multiples : offre « Organisateur » (essai puis factures mensuelles).
+  changePlan(c("ahmed", addDays(T, -110)), "PRO");
 
   const invite = (admin: string, tontineId: string, who: string, date: string) => {
     const { token } = createInvitation(c(admin, date), { tontineId, email: `${who}@koti.demo`, phone: null });

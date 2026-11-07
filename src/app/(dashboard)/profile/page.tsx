@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AccountActions, PasswordForm, ProfileForm } from "@/components/forms/profile-forms";
 import { InstallSection } from "@/components/pwa/install-prompt";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/feedback";
 import { Avatar } from "@/components/ui/misc";
 import { requireUser } from "@/lib/auth/session";
 import { allowDemoReset } from "@/lib/demo";
 import { formatDate } from "@/lib/utils/dates";
+import { getAccount } from "@/modules/billing/billing.service";
 import { getProfileStats } from "@/modules/users/user.service";
 import { ctxFor } from "@/server/context";
 
@@ -17,6 +20,7 @@ export default async function ProfilePage() {
   const user = await requireUser("/profile");
   const stats = getProfileStats(ctxFor(user.id));
   const allowReset = allowDemoReset();
+  const account = getAccount(ctxFor(user.id));
   return (
     <>
       <PageHeader title="Profil" description="Vos informations personnelles et la sécurité de votre compte." />
@@ -46,6 +50,26 @@ export default async function ProfilePage() {
             </CardHeader>
             <CardContent>
               <ProfileForm defaults={{ fullName: user.fullName, phone: user.phone }} email={user.email} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Abonnement</CardTitle>
+                <CardDescription>Offre, consommation et factures de votre compte organisateur.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">Offre « {account.plan.name} »</p>
+                <p className="text-sm text-muted-foreground">
+                  {account.usage.tontines.length} / {account.plan.limits.tontines} tontine{account.plan.limits.tontines > 1 ? "s" : ""} en cours
+                  {account.subscription?.status === "TRIAL" && " · essai gratuit"}
+                </p>
+              </div>
+              <Button asChild variant="outline">
+                <Link href="/account">Gérer mon abonnement</Link>
+              </Button>
             </CardContent>
           </Card>
           <Card>

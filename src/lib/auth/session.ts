@@ -77,7 +77,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     const session = s.sessions.find((x) => x.tokenHash === h);
     if (!session || new Date(session.expiresAt) <= new Date()) return null;
     const user = s.users.find((u) => u.id === session.userId);
-    if (!user) return null;
+    if (!user || user.status === "SUSPENDED") return null;
     return toSessionUser(user, s.userProfiles.find((p) => p.userId === user.id));
   });
 });

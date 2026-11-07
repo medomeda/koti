@@ -1,17 +1,19 @@
 import "server-only";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { migrateV2ToV3, migrateV3ToV4 } from "./migrations";
+import { migrateV2ToV3, migrateV3ToV4, migrateV4ToV5 } from "./migrations";
 import type {
   AuditLog,
   ContactRequest,
   ContributionObligation,
   ContributionPeriod,
+  Invoice,
   Invitation,
   Notification,
   Payment,
   RotationCycle,
   RotationSlot,
+  Subscription,
   Tontine,
   TontineMember,
   TontineTicket,
@@ -64,11 +66,14 @@ export interface DbState {
   auditLogs: AuditLog[];
   /** Messages reçus par le formulaire de contact du site vitrine. */
   contactRequests: ContactRequest[];
+  /** Abonnements (un par client) et factures simulées. */
+  subscriptions: Subscription[];
+  invoices: Invoice[];
   /** Verrous des tâches planifiées (protection contre les exécutions multiples). */
   jobRuns: Array<{ key: string; ranAt: string }>;
 }
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export function emptyState(): DbState {
   return {
@@ -89,6 +94,8 @@ export function emptyState(): DbState {
     notifications: [],
     auditLogs: [],
     contactRequests: [],
+    subscriptions: [],
+    invoices: [],
     jobRuns: [],
   };
 }
@@ -129,6 +136,7 @@ function load(): DbState {
       let migrated: { version: number } = { ...parsed, version: parsed.version };
       if (migrated.version === 2) migrated = migrateV2ToV3(migrated);
       if (migrated.version === 3) migrated = migrateV3ToV4(migrated);
+      if (migrated.version === 4) migrated = migrateV4ToV5(migrated);
       holder.state = migrated as DbState;
       persist(holder.state);
       return holder.state;

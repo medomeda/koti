@@ -53,11 +53,54 @@ export type NotificationType =
   | "PAYMENT_REJECTED"
   | "ROTATION_SOON";
 
+/** Rôle sur la PLATEFORME (distinct des rôles de tontine ADMIN / MEMBER). */
+export type PlatformRole = "USER" | "SUPPORT" | "SUPER_ADMIN";
+export type AccountStatus = "ACTIVE" | "SUSPENDED";
+
 export interface User {
   id: string;
   email: string;
   emailVerified: boolean;
+  /** Rôle plateforme : USER pour tous les clients et membres, SUPPORT / SUPER_ADMIN pour l'équipe KOTI. */
+  platformRole: PlatformRole;
+  /** Un compte suspendu ne peut plus se connecter (ses sessions sont refusées). */
+  status: AccountStatus;
   createdAt: ISODateTime;
+}
+
+export type PlanId = "FREE" | "PRO" | "ASSOCIATION";
+export type SubscriptionStatus = "TRIAL" | "ACTIVE";
+
+/** Abonnement d'un client (simulé : aucun paiement réel). Un seul par utilisateur. */
+export interface Subscription {
+  id: string;
+  userId: string;
+  planId: PlanId;
+  status: SubscriptionStatus;
+  startedAt: ISODateTime;
+  /** Fin de l'essai gratuit (14 jours) ; null hors essai. */
+  trialEndsAt: ISODateTime | null;
+  /** Un seul essai par client. */
+  trialUsed: boolean;
+  /** Période en cours (offres payantes) ; la facture suivante est émise à currentPeriodEnd. */
+  currentPeriodStart: ISODate | null;
+  currentPeriodEnd: ISODate | null;
+  canceledAt: ISODateTime | null;
+}
+
+/** Facture simulée. Montant figé à l'émission : un changement de prix ne modifie jamais l'historique. */
+export interface Invoice {
+  id: string;
+  userId: string;
+  subscriptionId: string;
+  /** « KOTI-2026-0001 » */
+  number: string;
+  planId: PlanId;
+  planName: string;
+  amount: number;
+  periodStart: ISODate;
+  periodEnd: ISODate;
+  issuedAt: ISODateTime;
 }
 
 export interface UserProfile {

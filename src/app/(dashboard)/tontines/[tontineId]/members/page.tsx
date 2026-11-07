@@ -1,10 +1,11 @@
 import { Mail, Phone, Users } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CancelInvitationButton, InviteButton, MemberMenu, TicketManager } from "@/components/shared/members-client";
 import { InvitationStatusBadge, MemberStatusBadge, RoleBadge } from "@/components/shared/status";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/feedback";
+import { Alert, EmptyState } from "@/components/ui/feedback";
 import { Avatar } from "@/components/ui/misc";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { guard } from "@/lib/auth/guard";
@@ -22,11 +23,13 @@ export default async function MembersPage({ params, searchParams }: { params: Pr
   const { former } = await searchParams;
   const user = await requireUser();
   const ctx = ctxFor(user.id);
-  const { tontine, role, members } = guard(() => listMembers(ctx, tontineId, { includeFormer: former === "1" }));
+  const { tontine, role, members, quota } = guard(() => listMembers(ctx, tontineId, { includeFormer: former === "1" }));
   const isAdmin = role === "ADMIN";
   const invitations = isAdmin ? listTontineInvitations(ctx, tontineId) : [];
   const pendingInvites = invitations.filter((i) => i.status === "PENDING");
   const closed = tontine.status === "COMPLETED" || tontine.status === "CANCELLED";
+  const memberLimitReached = quota.members.used >= quota.members.limit;
+  const ticketLimitReached = quota.tickets.used >= quota.tickets.limit;
   const activeCount = members.filter((m) => m.status === "ACTIVE").length;
   const ticketTotal = members.filter((m) => m.status === "ACTIVE").reduce((n, m) => n + m.ticketCount, 0);
   const ticketUi = (m: (typeof members)[number]) =>
@@ -38,7 +41,7 @@ export default async function MembersPage({ params, searchParams }: { params: Pr
         tickets={m.tickets}
         contributionAmount={tontine.contributionAmount}
         maxTickets={tontine.maxTicketsPerMember}
-        canAdd={isAdmin && tontine.status === "DRAFT" && tontine.multipleTicketsAllowed && m.status === "ACTIVE"}
+        canAdd={isAdmin && tontine.status === "DRAFT" && tontine.multipleTicketsAllowed && m.status === "ACTIVE" && !ticketLimitReached}
         canDelete={isAdmin && tontine.status === "DRAFT" && m.status === "ACTIVE"}
       />
     );
@@ -57,9 +60,19 @@ export default async function MembersPage({ params, searchParams }: { params: Pr
               </a>
             )}
           </div>
-          {isAdmin && <InviteButton tontineId={tontine.id} disabled={closed} />}
+          {isAdmin && <InviteButton tontineId={tontine.id} disabled={closed || memberLimitReached} />}
         </CardHeader>
 
+        {isAdmin && (memberLimitReached || ticketLimitReached) && (
+          <div className="px-4 pb-4 sm:px-5">
+            <Alert tone="warning" title="Limite de votre offre atteinte">
+              L&apos;offre « {quota.planName} » permet {quota.members.limit} membres et {quota.tickets.limit} tickets par tontine.{" "}
+              <Link href="/account" className="font-medium underline">
+                Voir mon abonnement
+              </Link>
+            </Alert>
+          </div>
+        )}
         {members.length === 0 ? (
           <EmptyState icon={<Users />} title="Aucun membre" />
         ) : (

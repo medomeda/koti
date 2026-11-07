@@ -50,6 +50,15 @@ const SCENARIOS: Array<{ title: string; as: string; steps: string[] }> = [
     ],
   },
   {
+    title: "Changer d'offre et voir les limites",
+    as: "Mariam (offre gratuite)",
+    steps: [
+      "Tontines → Nouvelle tontine : la limite d'une tontine en cours est atteinte, le bouton est bloqué.",
+      "Profil → Gérer mon abonnement : consultez votre consommation et choisissez l'offre Organisateur (essai de 14 jours, aucun paiement réel).",
+      "Revenez créer une tontine : c'est maintenant possible, tickets multiples compris. Connectée en Ahmed, consultez aussi ses factures simulées.",
+    ],
+  },
+  {
     title: "Vérifier la confidentialité",
     as: "Awa (membre simple)",
     steps: ["Dans « Tontine Famille » → Paiements : vous ne devez voir que vos propres cotisations.", "Vous ne devez pas voir l'onglet Paramètres."],

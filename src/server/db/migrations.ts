@@ -1,5 +1,6 @@
 import type { DbState } from "./store";
-import type { ContributionObligation, RotationCycle, RotationSlot, Tontine, TontineMember, TontineTicket } from "@/types/domain";
+import { PLANS } from "@/lib/marketing/plans";
+import type { ContributionObligation, RotationCycle, RotationSlot, Subscription, Tontine, TontineMember, TontineTicket } from "@/types/domain";
 
 /**
  * Migration v2 → v3 : introduction des tickets de participation.
@@ -90,4 +91,46 @@ export function migrateV2ToV3(legacy: unknown): DbState {
 export function migrateV3ToV4(legacy: unknown): DbState {
   const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
   return { ...(old as unknown as DbState), version: 4, contactRequests: (old.contactRequests as DbState["contactRequests"] | undefined) ?? [] };
+}
+
+/**
+ * Migration v4 → v5 : rôle plateforme, statut de compte, abonnements.
+ * Personne n'est bloqué rétroactivement : chaque utilisateur reçoit la plus petite offre qui couvre
+ * son usage actuel (tontines non clôturées qu'il a créées, membres, tickets, tickets multiples).
+ * Aucune facture n'est inventée pour le passé.
+ */
+export function migrateV4ToV5(legacy: unknown): DbState {
+  const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
+  const users = (old.users ?? []) as Array<{ id: string; createdAt: string; platformRole?: string; status?: string }>;
+  const tontines = (old.tontines ?? []) as Tontine[];
+  const members = (old.tontineMembers ?? []) as TontineMember[];
+  const tickets = (old.tontineTickets ?? []) as TontineTicket[];
+
+  const subscriptions: Subscription[] = [];
+  for (const u of users) {
+    u.platformRole ??= "USER";
+    u.status ??= "ACTIVE";
+    const owned = tontines.filter((t) => t.creatorId === u.id && (t.status === "DRAFT" || t.status === "ACTIVE" || t.status === "PAUSED"));
+    const memberCount = (t: Tontine) => members.filter((m) => m.tontineId === t.id && m.status === "ACTIVE").length;
+    const ticketCount = (t: Tontine) => tickets.filter((k) => k.tontineId === t.id && k.status === "ACTIVE" && !k.deletedAt).length;
+    const plan =
+      PLANS.find(
+        (p) => owned.length <= p.limits.tontines && owned.every((t) => memberCount(t) <= p.limits.membersPerTontine && ticketCount(t) <= p.limits.ticketsPerTontine && (p.limits.multipleTickets || !t.multipleTicketsAllowed)),
+      ) ?? PLANS[PLANS.length - 1]!;
+    const paid = plan.monthlyPrice > 0;
+    subscriptions.push({
+      id: crypto.randomUUID(),
+      userId: u.id,
+      planId: plan.id,
+      status: "ACTIVE",
+      startedAt: u.createdAt,
+      trialEndsAt: null,
+      // Une offre payante « reprise » n'a pas de facture : l'essai est considéré comme consommé.
+      trialUsed: paid,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      canceledAt: null,
+    });
+  }
+  return { ...(old as unknown as DbState), version: 5, users: users as unknown as DbState["users"], subscriptions, invoices: (old.invoices as DbState["invoices"] | undefined) ?? [] };
 }

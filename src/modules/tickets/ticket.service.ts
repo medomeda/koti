@@ -1,5 +1,6 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
+import { assertTicketCapacity } from "@/modules/billing/quota";
 import { appendRotationSlot, compactRotation } from "@/modules/rotations/rotation.service";
 import { isoNow, requireAccess, type Ctx } from "@/server/context";
 import { read, tx, type DbState } from "@/server/db/store";
@@ -14,6 +15,7 @@ import { formatTicketNumber, memberActiveTickets } from "./ticket.rules";
  * (création de tontine, acceptation d'invitation, ajout par l'administrateur).
  */
 export function issueTicket(s: DbState, ctx: Ctx, tontine: Tontine, memberId: string): TontineTicket {
+  assertTicketCapacity(s, tontine); // plafond de l'offre de l'organisateur
   const ticket: TontineTicket = {
     id: newId(),
     tontineId: tontine.id,

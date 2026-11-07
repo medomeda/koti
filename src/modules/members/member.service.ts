@@ -1,7 +1,8 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
 import { effectiveObligationStatus } from "@/modules/contributions/contribution.service";
-import { formatTicketNumber, memberActiveTickets } from "@/modules/tickets/ticket.rules";
+import { activeMemberCount, planOf } from "@/modules/billing/quota";
+import { activeTickets, formatTicketNumber, memberActiveTickets } from "@/modules/tickets/ticket.rules";
 import { isoNow, requireAccess, today, type Ctx } from "@/server/context";
 import { read, tx } from "@/server/db/store";
 import { forbidden, invalidState, notFound } from "@/server/errors";
@@ -66,7 +67,13 @@ export function listMembers(ctx: Ctx, tontineId: string, opts: { includeFormer?:
         };
       })
       .sort((a, b) => (a.status === "ACTIVE" ? 0 : 1) - (b.status === "ACTIVE" ? 0 : 1) || (a.role === "ADMIN" ? -1 : 0) - (b.role === "ADMIN" ? -1 : 0) || a.name.localeCompare(b.name, "fr"));
-    return { tontine, role: me.role, members };
+    const plan = planOf(s, tontine.creatorId);
+    const quota = {
+      planName: plan.name,
+      members: { used: activeMemberCount(s, tontine.id), limit: plan.limits.membersPerTontine },
+      tickets: { used: activeTickets(s, tontine.id).length, limit: plan.limits.ticketsPerTontine },
+    };
+    return { tontine, role: me.role, members, quota };
   });
 }
 

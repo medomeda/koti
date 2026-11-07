@@ -1,4 +1,5 @@
 import "server-only";
+import { runBilling } from "@/modules/billing/billing.service";
 import { ensureObligations, isOverdue } from "@/modules/contributions/contribution.service";
 import { notify } from "@/modules/notifications/notification.service";
 import { addDays, formatDate, todayISO } from "@/lib/utils/dates";
@@ -28,6 +29,8 @@ export function runScheduledJobs(now = new Date(), opts: { force?: boolean } = {
     const today = todayISO(now);
     let generated = 0;
     let reminders = 0;
+    // Facturation des abonnements (simulée) : fins d'essai et périodes échues.
+    const invoices = runBilling(s, now);
 
     for (const tontine of s.tontines) {
       if (tontine.status !== "ACTIVE") continue;
@@ -53,6 +56,6 @@ export function runScheduledJobs(now = new Date(), opts: { force?: boolean } = {
         if (notify(s, ctx, { userId: member.userId, tontineId: tontine.id, type: "ROTATION_SOON", title: "Votre tour de main approche", message: `Vous êtes bénéficiaire de « ${tontine.name} » le ${formatDate(slot.scheduledDate)}.`, resourceType: "rotation", resourceId: slot.id, dedupeKey: `rotation-soon:${slot.id}:${slot.scheduledDate}` })) reminders++;
       }
     }
-    return { skipped: false as const, generated, reminders };
+    return { skipped: false as const, generated, reminders, invoices };
   });
 }
