@@ -22,7 +22,8 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr" className={plex.variable}>
-      <body>
+      {/* suppressHydrationWarning : des extensions de navigateur (ex. ColorZilla) ajoutent des attributs à <body> avant l'hydratation. */}
+      <body suppressHydrationWarning>
         {children}
         <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 4000 }} />
         <PwaManager />
