@@ -104,7 +104,7 @@ export function emptyState(): DbState {
   };
 }
 
-type Holder = { state: DbState | null; seeding: boolean };
+type Holder = { state: DbState | null; seeding: boolean; afterLoadDone?: boolean };
 const g = globalThis as typeof globalThis & { __kotiDb?: Holder };
 const holder: Holder = (g.__kotiDb ??= { state: null, seeding: false });
 
@@ -113,13 +113,32 @@ const dbPath = resolve(/* turbopackIgnore: true */ process.cwd(), process.env.KO
 
 let seeder: ((state: DbState) => void) | null = null;
 
+let afterLoad: ((state: DbState) => boolean) | null = null;
+
+/**
+ * Enregistré par le module de seed : complète un état déjà existant (fichier relu ou migré) sans rien écraser.
+ * Doit être idempotent et renvoyer true si l'état a été modifié (il est alors réécrit sur disque).
+ */
+export function registerAfterLoad(fn: (state: DbState) => boolean) {
+  afterLoad = fn;
+}
+
 /** Enregistré par le module de seed (évite une dépendance circulaire). */
 export function registerSeeder(fn: (state: DbState) => void) {
   seeder = fn;
 }
 
+function completeExisting(state: DbState) {
+  if (holder.afterLoadDone || !afterLoad) return;
+  holder.afterLoadDone = true;
+  if (afterLoad(state)) persist(state);
+}
+
 function load(): DbState {
-  if (holder.state?.version === SCHEMA_VERSION) return holder.state;
+  if (holder.state?.version === SCHEMA_VERSION) {
+    completeExisting(holder.state);
+    return holder.state;
+  }
   holder.state = null;
   if (persistEnabled && existsSync(dbPath)) {
     let parsed: { version?: number } | null = null;
@@ -130,6 +149,7 @@ function load(): DbState {
     }
     if (parsed?.version === SCHEMA_VERSION) {
       holder.state = parsed as DbState;
+      completeExisting(holder.state);
       return holder.state;
     }
     if (parsed && typeof parsed.version === "number" && parsed.version >= 2 && parsed.version < SCHEMA_VERSION) {
@@ -144,11 +164,13 @@ function load(): DbState {
       if (migrated.version === 5) migrated = migrateV5ToV6(migrated);
       holder.state = migrated as DbState;
       persist(holder.state);
+      completeExisting(holder.state);
       return holder.state;
     }
   }
   const fresh = emptyState();
   holder.state = fresh;
+  holder.afterLoadDone = true;
   if (seeder) {
     holder.seeding = true;
     try {

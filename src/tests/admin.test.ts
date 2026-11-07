@@ -5,8 +5,8 @@ import { addClientNote, changeClientPlan, getClient, getPlatformOverview, grantT
 import { authenticate } from "@/modules/users/user.service";
 import { ctxFor } from "@/server/context";
 import { migrateV5ToV6 } from "@/server/db/migrations";
-import "@/server/db/seed";
-import { read, resetDatabase, tx } from "@/server/db/store";
+import { ensureDemoStaff } from "@/server/db/seed";
+import { read, resetDatabase, tx, type DbState } from "@/server/db/store";
 
 // L'activité fictive de la plateforme (≈ 60 clients) n'est générée que sur demande : elle ralentirait chaque test.
 beforeAll(() => {
@@ -180,6 +180,26 @@ describe("Espace admin — tontines et messages", () => {
     expect(m.length).toBeGreaterThanOrEqual(14);
     expect(m.filter((x) => x.status === "NEW")).toHaveLength(4);
     expect(m.every((x, i) => i === 0 || m[i - 1]!.createdAt >= x.createdAt)).toBe(true);
+  });
+});
+
+describe("Comptes de l'équipe sur une base de démonstration existante", () => {
+  it("sont ajoutés sans rien écraser, une seule fois, et sans toucher aux autres données", () => {
+    const s = read((st) => structuredClone(st)) as DbState;
+    const staffIds = new Set(s.users.filter((u) => u.platformRole !== "USER").map((u) => u.id));
+    expect(staffIds.size).toBe(2);
+    // Base « ancienne » : sans l'équipe.
+    s.users = s.users.filter((u) => !staffIds.has(u.id));
+    s.userProfiles = s.userProfiles.filter((p) => !staffIds.has(p.userId));
+    s.credentials = s.credentials.filter((c) => !staffIds.has(c.userId));
+    s.subscriptions = s.subscriptions.filter((x) => !staffIds.has(x.userId));
+    const others = structuredClone(s.users);
+    expect(ensureDemoStaff(s)).toBe(true);
+    expect(s.users.filter((u) => u.platformRole === "SUPER_ADMIN").map((u) => u.email)).toEqual(["operateur@koti.demo"]);
+    expect(s.users.filter((u) => u.platformRole === "SUPPORT").map((u) => u.email)).toEqual(["support@koti.demo"]);
+    expect(s.credentials.length).toBe(s.users.length);
+    expect(s.users.slice(0, others.length)).toEqual(others);
+    expect(ensureDemoStaff(s)).toBe(false); // idempotent
   });
 });
 
