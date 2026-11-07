@@ -32,11 +32,13 @@ utilisateurs sur l'interface et arbitrage des questions ouvertes (section 4).
 | 12 | Sécurité et audit | ✅ Relecture indépendante, 10 correctifs | ⬜ Revue après bascule |
 | 13 | Tests et recette | ✅ 62 tests (scénarios PRD 1 à 8, tickets, migration) | ⬜ Tests d'intégration base + e2e navigateur |
 | 14 | Mise en production | — | ⬜ Hébergement, sauvegardes, HTTPS |
+| 15 | Plateforme SaaS | ✅ Étape 1 : site vitrine, offres, contact. ⬜ Étapes 2 à 4 (voir §5) | ⬜ Facturation réelle (Mobile Money), e-mails, hébergement |
 
 ## 3. Journal des livraisons
 
 | Date | Livraison |
 |---|---|
+| 07/11/2026 | **SaaS — étape 1 : site vitrine public** (couche simulée). Accueil (hero avec cercle de rotation animé, étapes, captures réelles de l'application, bandeau de confiance), Fonctionnalités, Tarifs (3 offres fictives : Découverte 0 / Organisateur 5 000 / Association 15 000 FCFA par mois, quotas en tontines, membres et tickets), FAQ, Contact, CGU et Confidentialité (textes provisoires à faire valider). Un visiteur sans session voit le site sur `/` ; un utilisateur connecté garde son tableau de bord. Formulaire de contact : validation serveur, piège à robots, limite 3 messages/heure/e-mail, messages stockés (`contactRequests`, base v4, migration v3 → v4 avec sauvegarde `.v3.bak`). Offres centralisées dans `src/lib/marketing/plans.ts` (réutilisées pour les quotas à l'étape 2). 68 tests. |
 | 07/11/2026 | **Tickets de participation multiples (phase 1, couche simulée)** — spécification : [PRD-V2.md](PRD-V2.md). Un membre garde **une seule adhésion** et peut détenir plusieurs tickets (`TKT-001`…), attribués par l'administrateur **en brouillon uniquement** (paramètres `multipleTicketsAllowed` / `maxTicketsPerMember`, faux/1 par défaut). Une obligation par ticket et par période (unicité période+ticket), un tour de main par ticket, cycle de rotation créé au **démarrage atomique** (contrôles puis figeage), suppression logique d'un ticket avant démarrage (audit, numéro jamais réutilisé). Écrans : membres (tickets, cotisation par période, ajout/suppression), rotation et paiements par ticket, tableau de bord (tickets, tickets en retard). **Migration v2 → v3** non destructive (sauvegarde `koti-demo.json.v2.bak`, ticket initial par adhésion, historique intact, arrêt en cas d'ambiguïté) vérifiée sur le fichier de démonstration réel. 62 tests. |
 | 01/11/2026 | **Application installable (PWA), phase 1** : manifeste et icônes, installation Android (bouton) et iPhone (aide pas à pas), message « Nouvelle version disponible — Mettre à jour » après chaque déploiement, page hors ligne, cache limité aux fichiers techniques (aucune donnée sur l'appareil), cache vidé à la déconnexion. Testé : installabilité Chrome, hors ligne, passage v1 → v2. |
 | 31/10/2026 | **Version de démonstration déployable sur Coolify** : image Docker autonome, volume de données, bandeau « démonstration », page `/guide` pour les testeurs, réinitialisation protégée par secret, sonde `/api/health`. Guide : [DEPLOIEMENT_COOLIFY.md](DEPLOIEMENT_COOLIFY.md). |
@@ -72,6 +74,9 @@ facile à changer. **Statuts :** 🟡 en attente · ✅ tranchée · ⚪ abandon
 | 6 | Tests e2e navigateur | Les parcours Playwright (dont le parcours testeur en mode production) tournent hors dépôt ; en faire une vraie suite. | À faire |
 | 8 | Notifications push (PWA phase 2) | Rappels d'échéance et validation de paiement sur le téléphone (Android, et iPhone si l'application est installée). Nécessite le backend : clés VAPID, enregistrement des abonnements. Plan détaillé : clés VAPID, bouton d'activation (profil), `push`/`notificationclick` dans `sw.js`, table d'abonnements, `web-push`, préférences, cron réel. **À rappeler au démarrage de la phase 2.** | À faire (phase 2) |
 | 9 | Schéma Drizzle des tickets | Traduire le modèle simulé : `tontine_tickets`, `rotation_cycles`, `ticket_id` sur obligations et tours, unicités, verrou `SELECT … FOR UPDATE` sur la création de ticket (le plafond n'est aujourd'hui protégé que par le caractère synchrone de `tx()`), transaction de démarrage. | À faire (phase 2) |
+| 10 | SaaS — étape 2 : rôles, offres et quotas | Rôle plateforme sur l'utilisateur, offres et abonnements simulés, quotas appliqués côté serveur (tontines, membres, tickets), page « Mon compte » (offre, consommation, factures simulées). | À faire |
+| 11 | SaaS — étape 3 : espace admin plateforme | `/admin` : tableau de bord (inscrits, clients actifs, revenu récurrent simulé, entonnoir), clients (liste, fiche, suspendre, changer d'offre, notes), tontines en lecture seule (agrégats, pas le détail des paiements), messages de contact, jeu de données fictif sur 12 mois. | À faire |
+| 12 | SaaS — étape 4 : support, annonces, audit plateforme, paramètres | Traitement des messages de contact, bandeau d'annonces, journal d'audit des actions de l'opérateur, réglage des offres et quotas. | À faire |
 | 7 | Test de l'image Docker | Le serveur autonome a été testé en mode production ; l'image elle-même pas en local (Docker Desktop éteint). La valider au premier déploiement Coolify. | À faire |
 
 ## 6. État de qualité (dernière vérification : 07/11/2026)
@@ -104,6 +109,7 @@ Pièges connus :
 
 | Besoin | Emplacement |
 |---|---|
+| Site vitrine | `src/app/(marketing)/*`, `src/components/marketing/*`, `src/lib/marketing/plans.ts` ; formulaire de contact : `src/modules/leads/`, `src/actions/contact.ts` |
 | Règles métier | `src/modules/*/*.service.ts` ; tickets : `src/modules/tickets/` ; migration : `src/server/db/migrations.ts` |
 | Moteur de fréquence (pur) | `src/modules/contributions/frequency.ts` |
 | Permissions (matrice PRD §5.4) | `src/lib/permissions/index.ts`, contrôle dans `src/server/context.ts` |

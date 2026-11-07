@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isISODate } from "@/lib/utils/dates";
-import { FREQUENCIES, PAYMENT_METHODS } from "@/types/domain";
+import { CONTACT_TOPICS, FREQUENCIES, PAYMENT_METHODS } from "@/types/domain";
 
 // Messages d'erreur par défaut en français (les messages métier restent explicites ci-dessous).
 z.config(z.locales.fr());
@@ -151,6 +151,17 @@ export const reorderRotationSchema = z.object({
   ticketIds: z.array(z.string().uuid()).min(1).max(500),
   reason: z.string().trim().max(300).optional(),
 });
+
+export const contactSchema = z.object({
+  name: trimmed(2, 80, "Le nom"),
+  email: emailSchema,
+  phone: z.union([z.literal(""), phoneSchema]).default(""),
+  topic: z.enum(CONTACT_TOPICS, { message: "Choisissez un sujet." }),
+  message: trimmed(10, 2000, "Le message"),
+  /** Piège à robots : champ invisible, toujours vide pour une vraie personne. */
+  website: z.string().max(200).optional(),
+});
+export type ContactInput = z.input<typeof contactSchema>;
 
 export const idSchema = z.string().uuid();
 export const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);

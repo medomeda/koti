@@ -214,6 +214,22 @@ export interface Notification {
   createdAt: ISODateTime;
 }
 
+export const CONTACT_TOPICS = ["QUESTION", "DEMO", "PARTNERSHIP", "SUPPORT", "OTHER"] as const;
+export type ContactTopic = (typeof CONTACT_TOPICS)[number];
+export type ContactRequestStatus = "NEW" | "HANDLED";
+
+/** Message envoyé depuis le formulaire de contact du site vitrine (visiteur non connecté). */
+export interface ContactRequest {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  topic: ContactTopic;
+  message: string;
+  status: ContactRequestStatus;
+  createdAt: ISODateTime;
+}
+
 export interface AuditLog {
   id: string;
   actorId: string;

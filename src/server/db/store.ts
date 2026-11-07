@@ -1,9 +1,10 @@
 import "server-only";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { migrateV2ToV3 } from "./migrations";
+import { migrateV2ToV3, migrateV3ToV4 } from "./migrations";
 import type {
   AuditLog,
+  ContactRequest,
   ContributionObligation,
   ContributionPeriod,
   Invitation,
@@ -61,11 +62,13 @@ export interface DbState {
   rotationSlots: RotationSlot[];
   notifications: Notification[];
   auditLogs: AuditLog[];
+  /** Messages reçus par le formulaire de contact du site vitrine. */
+  contactRequests: ContactRequest[];
   /** Verrous des tâches planifiées (protection contre les exécutions multiples). */
   jobRuns: Array<{ key: string; ranAt: string }>;
 }
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export function emptyState(): DbState {
   return {
@@ -85,6 +88,7 @@ export function emptyState(): DbState {
     rotationSlots: [],
     notifications: [],
     auditLogs: [],
+    contactRequests: [],
     jobRuns: [],
   };
 }
@@ -117,15 +121,17 @@ function load(): DbState {
       holder.state = parsed as DbState;
       return holder.state;
     }
-    if (parsed?.version === 2) {
-      // Migration NON destructive : sauvegarde du fichier d'origine, puis conversion.
+    if (parsed && typeof parsed.version === "number" && parsed.version >= 2 && parsed.version < SCHEMA_VERSION) {
+      // Migration NON destructive : sauvegarde du fichier d'origine, puis conversion version par version.
       // Une ambiguïté interrompt le démarrage (exception) au lieu de régénérer la démo : le fichier reste intact.
-      const backup = `${dbPath}.v2.bak`;
+      const backup = `${dbPath}.v${parsed.version}.bak`;
       if (!existsSync(backup)) copyFileSync(dbPath, backup);
-      const migrated = migrateV2ToV3(parsed);
-      holder.state = migrated;
-      persist(migrated);
-      return migrated;
+      let migrated: { version: number } = { ...parsed, version: parsed.version };
+      if (migrated.version === 2) migrated = migrateV2ToV3(migrated);
+      if (migrated.version === 3) migrated = migrateV3ToV4(migrated);
+      holder.state = migrated as DbState;
+      persist(holder.state);
+      return holder.state;
     }
   }
   const fresh = emptyState();

@@ -85,3 +85,9 @@ export function migrateV2ToV3(legacy: unknown): DbState {
 
   return { ...(old as unknown as DbState), version: 3, tontineTickets: tickets, rotationCycles: cycles, tontines: tontines as Tontine[] };
 }
+
+/** Migration v3 → v4 : ajout des messages de contact du site vitrine (aucune donnée existante n'est touchée). */
+export function migrateV3ToV4(legacy: unknown): DbState {
+  const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
+  return { ...(old as unknown as DbState), version: 4, contactRequests: (old.contactRequests as DbState["contactRequests"] | undefined) ?? [] };
+}

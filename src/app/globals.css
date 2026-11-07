@@ -110,3 +110,58 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Site vitrine : titres en Bricolage Grotesque (variable --font-display chargée par le layout marketing). */
+@utility font-display {
+  font-family: var(--font-display), var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  font-optical-sizing: auto;
+}
+
+/* Cercle de rotation du hero : le jeton d'or part du tour 1 et s'arrête au tour 3, une seule fois. */
+.koti-token {
+  transform-box: view-box;
+  transform-origin: 180px 180px;
+  animation: koti-travel 2.4s cubic-bezier(0.65, 0, 0.35, 1) 0.6s both;
+}
+.koti-seat-3 {
+  animation: koti-arrive 0.4s ease 2.8s both;
+}
+@keyframes koti-travel {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(90deg);
+  }
+}
+@keyframes koti-arrive {
+  to {
+    fill: #f4c04e;
+    stroke: #f4c04e;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .koti-token {
+    animation: none;
+    transform: rotate(90deg);
+  }
+  .koti-seat-3 {
+    animation: none;
+    fill: #f4c04e;
+    stroke: #f4c04e;
+  }
+}
+.koti-seat-3-text {
+  animation: koti-arrive-text 0.4s ease 2.8s both;
+}
+@keyframes koti-arrive-text {
+  to {
+    fill: #0f2a1c;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .koti-seat-3-text {
+    animation: none;
+    fill: #0f2a1c;
+  }
+}

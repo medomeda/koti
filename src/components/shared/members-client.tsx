@@ -211,7 +211,7 @@ export function TicketManager({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tickets.map((t) => (
-        <span key={t.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+        <span key={t.id} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
           <Ticket className="size-3" aria-hidden /> {t.label}
           {t.rotationPosition !== null && <span className="font-normal text-muted-foreground">· tour {t.rotationPosition}</span>}
           {canDelete && count > 1 && (

@@ -6,12 +6,15 @@ import { NextResponse, type NextRequest } from "next/server";
  * revérifie la session et les permissions côté serveur.
  */
 // Fichiers de la PWA (/sw.js, /offline, /manifest.webmanifest) : accessibles sans session, sans aucune donnée.
-const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/api/", "/guide", "/sw.js", "/offline", "/manifest.webmanifest"];
+// Site vitrine : pages publiques. « / » n'en fait pas partie : sans session, il est réécrit vers la page d'accueil du site.
+const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/api/", "/guide", "/sw.js", "/offline", "/manifest.webmanifest", "/bienvenue", "/fonctionnalites", "/tarifs", "/faq", "/contact", "/cgu", "/confidentialite"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (PUBLIC.some((p) => pathname === p || pathname.startsWith(p))) return NextResponse.next();
   if (request.cookies.has("koti_session")) return NextResponse.next();
+  // Visiteur sur la racine : site vitrine (l'URL reste « / »).
+  if (pathname === "/") return NextResponse.rewrite(new URL("/bienvenue", request.url));
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
