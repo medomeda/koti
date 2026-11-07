@@ -134,3 +134,9 @@ export function migrateV4ToV5(legacy: unknown): DbState {
   }
   return { ...(old as unknown as DbState), version: 5, users: users as unknown as DbState["users"], subscriptions, invoices: (old.invoices as DbState["invoices"] | undefined) ?? [] };
 }
+
+/** Migration v5 → v6 : notes internes de l'espace d'administration (aucune donnée existante n'est touchée). */
+export function migrateV5ToV6(legacy: unknown): DbState {
+  const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
+  return { ...(old as unknown as DbState), version: 6, adminNotes: (old.adminNotes as DbState["adminNotes"] | undefined) ?? [] };
+}

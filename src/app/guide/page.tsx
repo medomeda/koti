@@ -7,7 +7,7 @@ import { DemoBanner } from "@/components/layout/demo-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isDemoMode } from "@/lib/demo";
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/server/db/seed";
+import { DEMO_ACCOUNTS, DEMO_PASSWORD, DEMO_STAFF } from "@/server/db/seed";
 
 export const metadata: Metadata = { title: "Guide du testeur" };
 // KOTI_DEMO_MODE est lu à l'exécution (Coolify), pas au build : pas de pré-rendu statique.
@@ -59,6 +59,16 @@ const SCENARIOS: Array<{ title: string; as: string; steps: string[] }> = [
     ],
   },
   {
+    title: "Piloter la plateforme",
+    as: "Équipe KOTI (super-admin)",
+    steps: [
+      "Connectez-vous avec operateur@koti.demo : vous arrivez dans l'administration. Parcourez le tableau de bord (inscriptions, revenu, entonnoir, alertes).",
+      "Clients : recherchez, filtrez par offre ou statut, ouvrez une fiche. Essayez « Ajouter une note », « Offrir un essai », puis « Suspendre le compte » sur un client.",
+      "Reconnectez-vous en support@koti.demo : vous consultez et annotez, mais les actions sensibles ne sont pas proposées.",
+      "Tontines : vous ne voyez que des chiffres agrégés, jamais le détail des paiements des membres.",
+    ],
+  },
+  {
     title: "Vérifier la confidentialité",
     as: "Awa (membre simple)",
     steps: ["Dans « Tontine Famille » → Paiements : vous ne devez voir que vos propres cotisations.", "Vous ne devez pas voir l'onglet Paramètres."],
@@ -91,6 +101,17 @@ export default function GuidePage() {
             </p>
             <ul className="divide-y rounded-lg border">
               {DEMO_ACCOUNTS.map((a) => (
+                <li key={a.email} className="flex flex-col px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-medium">{a.fullName}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {a.email} · {a.hint}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm font-medium">Équipe KOTI (administration)</p>
+            <ul className="divide-y rounded-lg border">
+              {DEMO_STAFF.map((a) => (
                 <li key={a.email} className="flex flex-col px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="font-medium">{a.fullName}</span>
                   <span className="text-sm text-muted-foreground">

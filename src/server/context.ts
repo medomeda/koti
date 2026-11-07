@@ -1,9 +1,10 @@
 import "server-only";
 import { can, type Permission } from "@/lib/permissions";
+import { platformCan, type PlatformPermission } from "@/lib/permissions/platform";
 import { todayISO } from "@/lib/utils/dates";
 import type { DbState } from "@/server/db/store";
 import { forbidden, notFound } from "@/server/errors";
-import type { ISODate, Tontine, TontineMember } from "@/types/domain";
+import type { ISODate, Tontine, TontineMember, User } from "@/types/domain";
 
 /** Contexte d'exécution d'un service : qui agit, et quand (injectable pour le seed et les tests). */
 export interface Ctx {
@@ -41,4 +42,15 @@ export function findAccess(s: Readonly<DbState>, userId: string, tontineId: stri
 
 export function displayName(s: Readonly<DbState>, userId: string): string {
   return s.userProfiles.find((p) => p.userId === userId)?.fullName ?? "Utilisateur";
+}
+
+/**
+ * Accès à l'espace d'administration : l'utilisateur doit être membre de l'équipe KOTI (rôle plateforme)
+ * et ne pas être suspendu. Sans droit, la ressource est « introuvable » (on ne révèle pas /admin).
+ */
+export function requirePlatform(s: Readonly<DbState>, ctx: Ctx, permission: PlatformPermission = "admin.view"): User {
+  const user = s.users.find((u) => u.id === ctx.userId);
+  if (!user || user.status !== "ACTIVE" || !platformCan(user.platformRole, "admin.view")) throw notFound();
+  if (!platformCan(user.platformRole, permission)) throw forbidden();
+  return user;
 }

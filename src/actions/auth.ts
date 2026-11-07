@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { forgotPasswordSchema, loginSchema, registerSchema } from "@/lib/validations";
+import { platformRoleOf } from "@/modules/admin/admin.service";
 import { authenticate, signUp } from "@/modules/users/user.service";
 import { AppError } from "@/server/errors";
 import { failureLimiter, fieldErrorsOf, rateLimit, safeNext, type ActionResult } from "./_shared";
@@ -43,7 +44,9 @@ export async function loginAction(raw: unknown, next?: string): Promise<ActionRe
   }
   byEmail.reset();
   await createSession(userId);
-  redirect(safeNext(next));
+  // Membre de l'équipe KOTI sans destination précise : directement l'espace d'administration.
+  const target = safeNext(next);
+  redirect(target === "/" && platformRoleOf(userId) ? "/admin" : target);
 }
 
 export async function registerAction(raw: unknown, next?: string): Promise<ActionResult> {

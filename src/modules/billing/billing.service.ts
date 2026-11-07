@@ -61,45 +61,71 @@ function invoiceFor(s: DbState, sub: Subscription, plan: Plan, periodStart: ISOD
  * - retour au gratuit : effectif tout de suite, les factures déjà émises sont conservées.
  */
 export function changePlan(ctx: Ctx, planId: PlanId) {
-  tx((s) => {
-    const sub = subscriptionOf(s, ctx.userId);
-    if (!sub) throw new AppError("NOT_FOUND", "Abonnement introuvable.");
-    if (sub.planId === planId) throw conflict("Vous êtes déjà sur cette offre.");
-    const target = planById(planId);
-    const bad = overages(usageOf(s, ctx.userId), target);
-    if (bad.length > 0) {
-      throw new AppError("INVALID_STATE", `L'offre « ${target.name} » ne couvre pas votre usage actuel : ${bad.join(" ; ")}. Réduisez-le d'abord (clôturez une tontine, retirez des membres ou des tickets).`);
-    }
-    const before = sub.planId;
-    const nowIso = isoNow(ctx);
-    const day = today(ctx);
-    sub.planId = planId;
-    if (target.monthlyPrice === 0) {
-      sub.status = "ACTIVE";
-      sub.trialEndsAt = null;
-      sub.currentPeriodStart = null;
-      sub.currentPeriodEnd = null;
-      sub.canceledAt = nowIso;
-    } else if (sub.status === "TRIAL") {
-      // Changement d'offre pendant l'essai : l'essai continue, la première facture suivra à son terme.
-    } else if (!sub.trialUsed) {
-      sub.status = "TRIAL";
-      sub.trialUsed = true;
-      sub.canceledAt = null;
-      sub.trialEndsAt = new Date(ctx.now.getTime() + TRIAL_DAYS * 86_400_000).toISOString();
-      sub.currentPeriodStart = null;
-      sub.currentPeriodEnd = addDays(day, TRIAL_DAYS);
-    } else {
-      sub.status = "ACTIVE";
-      sub.canceledAt = null;
-      sub.currentPeriodStart = day;
-      sub.currentPeriodEnd = addMonths(day, 1);
-      const upgraded = planById(before).monthlyPrice < target.monthlyPrice || before === "FREE";
-      // Descente entre deux offres payantes : le nouveau prix s'applique à la prochaine période.
-      if (upgraded) invoiceFor(s, sub, target, day, ctx.now);
-    }
-    audit(s, ctx, { tontineId: null, action: "subscription.change", entityType: "subscription", entityId: sub.id, oldValues: { planId: before }, newValues: { planId, status: sub.status } });
-  });
+  tx((s) => applyPlanChange(s, ctx, ctx.userId, planId, "subscription.change"));
+}
+
+/**
+ * Cœur du changement d'offre, utilisé par le client (changePlan) et par l'équipe KOTI (au nom d'un client).
+ * `ctx.userId` est l'auteur (audit), `targetUserId` le client concerné.
+ */
+export function applyPlanChange(s: DbState, ctx: Ctx, targetUserId: string, planId: PlanId, auditAction: string, reason?: string) {
+  const sub = subscriptionOf(s, targetUserId);
+  if (!sub) throw new AppError("NOT_FOUND", "Abonnement introuvable.");
+  if (sub.planId === planId) throw conflict(targetUserId === ctx.userId ? "Vous êtes déjà sur cette offre." : "Ce client est déjà sur cette offre.");
+  const target = planById(planId);
+  const bad = overages(usageOf(s, targetUserId), target);
+  if (bad.length > 0) {
+    const whose = targetUserId === ctx.userId ? "votre usage actuel" : "l'usage actuel du client";
+    throw new AppError("INVALID_STATE", `L'offre « ${target.name} » ne couvre pas ${whose} : ${bad.join(" ; ")}. Il faut d'abord le réduire (clôturer une tontine, retirer des membres ou des tickets).`);
+  }
+  const before = sub.planId;
+  const nowIso = isoNow(ctx);
+  const day = today(ctx);
+  sub.planId = planId;
+  if (target.monthlyPrice === 0) {
+    sub.status = "ACTIVE";
+    sub.trialEndsAt = null;
+    sub.currentPeriodStart = null;
+    sub.currentPeriodEnd = null;
+    sub.canceledAt = nowIso;
+  } else if (sub.status === "TRIAL") {
+    // Changement d'offre pendant l'essai : l'essai continue, la première facture suivra à son terme.
+  } else if (!sub.trialUsed) {
+    sub.status = "TRIAL";
+    sub.trialUsed = true;
+    sub.canceledAt = null;
+    sub.trialEndsAt = new Date(ctx.now.getTime() + TRIAL_DAYS * 86_400_000).toISOString();
+    sub.currentPeriodStart = null;
+    sub.currentPeriodEnd = addDays(day, TRIAL_DAYS);
+  } else {
+    sub.status = "ACTIVE";
+    sub.canceledAt = null;
+    sub.currentPeriodStart = day;
+    sub.currentPeriodEnd = addMonths(day, 1);
+    const upgraded = planById(before).monthlyPrice < target.monthlyPrice || before === "FREE";
+    // Descente entre deux offres payantes : le nouveau prix s'applique à la prochaine période.
+    if (upgraded) invoiceFor(s, sub, target, day, ctx.now);
+  }
+  audit(s, ctx, { tontineId: null, action: auditAction, entityType: "subscription", entityId: sub.id, oldValues: { userId: targetUserId, planId: before }, newValues: { userId: targetUserId, planId, status: sub.status }, reason: reason ?? null });
+}
+
+/** Essai offert par l'équipe KOTI (même si le client a déjà consommé son essai). L'usage doit tenir dans l'offre. */
+export function applyTrialGrant(s: DbState, ctx: Ctx, targetUserId: string, planId: PlanId, days: number, reason?: string) {
+  const sub = subscriptionOf(s, targetUserId);
+  if (!sub) throw new AppError("NOT_FOUND", "Abonnement introuvable.");
+  const target = planById(planId);
+  if (target.monthlyPrice === 0) throw new AppError("VALIDATION", "Un essai s'offre sur une offre payante.");
+  const bad = overages(usageOf(s, targetUserId), target);
+  if (bad.length > 0) throw new AppError("INVALID_STATE", `L'offre « ${target.name} » ne couvre pas l'usage actuel : ${bad.join(" ; ")}.`);
+  const before = { planId: sub.planId, status: sub.status };
+  sub.planId = planId;
+  sub.status = "TRIAL";
+  sub.trialUsed = true;
+  sub.canceledAt = null;
+  sub.trialEndsAt = new Date(ctx.now.getTime() + days * 86_400_000).toISOString();
+  sub.currentPeriodStart = null;
+  sub.currentPeriodEnd = addDays(today(ctx), days);
+  audit(s, ctx, { tontineId: null, action: "admin.trial.grant", entityType: "subscription", entityId: sub.id, oldValues: { userId: targetUserId, ...before }, newValues: { userId: targetUserId, planId, days }, reason: reason ?? null });
 }
 
 /**

@@ -13,6 +13,7 @@ import { registerUser } from "@/modules/users/user.service";
 import { runScheduledJobs } from "@/server/jobs";
 import type { Ctx } from "@/server/context";
 import type { PaymentMethod } from "@/types/domain";
+import { seedPlatformActivity, seedPlatformStructure, type PlatformSeedResult } from "./seed-platform";
 import { registerSeeder, type DbState } from "./store";
 
 /**
@@ -27,6 +28,12 @@ export const DEMO_ACCOUNTS = [
   { email: "mariam@koti.demo", fullName: "Mariam Koné", phone: "+2250702030405", hint: "Admin « Tontine des Amies »" },
   { email: "koffi@koti.demo", fullName: "Koffi N'Guessan", phone: "+2250703040506", hint: "Membre, admin « Association Riviera »" },
   { email: "awa@koti.demo", fullName: "Awa Diallo", phone: "+2250704050607", hint: "Membre simple" },
+] as const;
+
+/** Équipe KOTI (espace d'administration de la plateforme). Mot de passe identique. */
+export const DEMO_STAFF = [
+  { email: "operateur@koti.demo", fullName: "Équipe KOTI (super-admin)", hint: "Espace d'administration : tous les droits" },
+  { email: "support@koti.demo", fullName: "Support KOTI", hint: "Espace d'administration : consultation et notes" },
 ] as const;
 
 const OTHERS = [
@@ -60,6 +67,8 @@ export function seedDemo(s: DbState) {
   // Équipe KOTI : opérateur de la plateforme (espace d'administration, étape 3 du chantier SaaS).
   ids.operateur = registerUser(s, { fullName: "Équipe KOTI", email: "operateur@koti.demo", phone: "+2250700000000", password: "", passwordHash: hash, now: at(addDays(T, -200)) });
   s.users.find((u) => u.id === ids.operateur)!.platformRole = "SUPER_ADMIN";
+  ids.support = registerUser(s, { fullName: "Support KOTI", email: "support@koti.demo", phone: "+2250700000001", password: "", passwordHash: hash, now: at(addDays(T, -190)) });
+  s.users.find((u) => u.id === ids.support)!.platformRole = "SUPPORT";
   for (const u of s.users) u.emailVerified = true;
   const c = (who: string, date: string, hour = 10): Ctx => ({ userId: ids[who]!, now: at(date, hour) });
   const random = rng(42);
@@ -193,6 +202,12 @@ export function seedDemo(s: DbState) {
   for (const who of ["ahmed", "kadi", "ibrahim"]) invite("yao", plateau, who, addDays(T, -79));
   changeTontineStatus(c("yao", addDays(T, -72)), plateau, "activate");
 
+  // Activité fictive de la plateforme (clients, offres, tontines) : désactivée dans les tests unitaires, sauf demande explicite.
+  const withPlatform = process.env.NODE_ENV !== "test" || process.env.KOTI_SEED_PLATFORM === "1";
+  const platformEnv = { s, today: T, hash, at, random: rng(1337), operatorId: ids.operateur!, supportId: ids.support! };
+  let platform: PlatformSeedResult | null = null;
+  if (withPlatform) platform = seedPlatformStructure(platformEnv);
+
   // Génération des échéances jusqu'à aujourd'hui (horloge = maintenant), sans rappels à ce stade.
   for (const t of s.tontines) ensureObligations(s, { userId: "system", now }, t);
 
@@ -219,6 +234,7 @@ export function seedDemo(s: DbState) {
   createInvitation(c("koffi", addDays(T, -1)), { tontineId: riviera, email: "ahmed@koti.demo", phone: null });
   settle(plateau, "yao", (who, _n, past) => (past ? (who === "kadi" ? "late" : "paid") : "skip"));
   changeTontineStatus(c("yao", addDays(T, -3)), plateau, "pause");
+  if (platform) seedPlatformActivity(platformEnv, platform);
 
   // Rappels et alertes (idempotents) à la date du jour.
   runScheduledJobs(now, { force: true });

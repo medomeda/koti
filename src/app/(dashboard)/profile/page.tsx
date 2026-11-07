@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/misc";
 import { requireUser } from "@/lib/auth/session";
 import { allowDemoReset } from "@/lib/demo";
 import { formatDate } from "@/lib/utils/dates";
+import { platformRoleOf } from "@/modules/admin/admin.service";
 import { getAccount } from "@/modules/billing/billing.service";
 import { getProfileStats } from "@/modules/users/user.service";
 import { ctxFor } from "@/server/context";
@@ -21,6 +22,7 @@ export default async function ProfilePage() {
   const stats = getProfileStats(ctxFor(user.id));
   const allowReset = allowDemoReset();
   const account = getAccount(ctxFor(user.id));
+  const staffRole = platformRoleOf(user.id);
   return (
     <>
       <PageHeader title="Profil" description="Vos informations personnelles et la sécurité de votre compte." />
@@ -52,6 +54,21 @@ export default async function ProfilePage() {
               <ProfileForm defaults={{ fullName: user.fullName, phone: user.phone }} email={user.email} />
             </CardContent>
           </Card>
+          {staffRole && (
+            <Card className="border-primary/30">
+              <CardHeader>
+                <div>
+                  <CardTitle>Équipe KOTI</CardTitle>
+                  <CardDescription>Vous avez accès à l&apos;administration de la plateforme ({staffRole === "SUPER_ADMIN" ? "super-admin" : "support"}).</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Button asChild>
+                  <Link href="/admin">Ouvrir l&apos;administration</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <div>

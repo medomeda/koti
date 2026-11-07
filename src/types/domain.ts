@@ -257,6 +257,15 @@ export interface Notification {
   createdAt: ISODateTime;
 }
 
+/** Note interne de l'équipe KOTI sur un client : jamais visible par le client. */
+export interface AdminNote {
+  id: string;
+  userId: string;
+  authorId: string;
+  text: string;
+  createdAt: ISODateTime;
+}
+
 export const CONTACT_TOPICS = ["QUESTION", "DEMO", "PARTNERSHIP", "SUPPORT", "OTHER"] as const;
 export type ContactTopic = (typeof CONTACT_TOPICS)[number];
 export type ContactRequestStatus = "NEW" | "HANDLED";
