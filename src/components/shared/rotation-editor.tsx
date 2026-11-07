@@ -15,7 +15,8 @@ import { RotationStatusBadge } from "./status";
 import { useAction } from "./use-action";
 
 export interface EditorRow {
-  memberId: string;
+  ticketId: string;
+  ticketLabel: string;
   name: string;
   avatarUrl: string | null;
   position: number;
@@ -33,7 +34,7 @@ export function RotationEditor({ tontineId, rows, started, dates }: { tontineId:
   const positions = useMemo(() => initial.map((r) => r.position), [initial]);
   const [order, setOrder] = useState(initial);
   const [reason, setReason] = useState("");
-  const dirty = order.some((r, i) => r.memberId !== initial[i]?.memberId);
+  const dirty = order.some((r, i) => r.ticketId !== initial[i]?.ticketId);
   const save = useAction(reorderRotationAction, { success: "Ordre des tours enregistré." });
 
   const move = (i: number, delta: -1 | 1) => {
@@ -45,7 +46,7 @@ export function RotationEditor({ tontineId, rows, started, dates }: { tontineId:
   };
 
   const submit = async () => {
-    const res = await save.run({ tontineId, memberIds: order.map((r) => r.memberId), reason: started ? reason : undefined });
+    const res = await save.run({ tontineId, ticketIds: order.map((r) => r.ticketId), reason: started ? reason : undefined });
     if (res.ok) setReason("");
   };
 
@@ -58,32 +59,36 @@ export function RotationEditor({ tontineId, rows, started, dates }: { tontineId:
       )}
       <ol className="divide-y rounded-xl border bg-card">
         {frozen.map((r) => (
-          <li key={r.memberId} className="flex items-center gap-3 bg-muted/40 px-4 py-3">
+          <li key={r.ticketId} className="flex items-center gap-3 bg-muted/40 px-4 py-3">
             <span className="w-7 text-center text-sm font-semibold tabular-nums text-muted-foreground">{r.position}</span>
             <Avatar name={r.name} src={r.avatarUrl} className="size-8" />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">{r.name}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
+              {r.name} <span className="font-normal">· {r.ticketLabel}</span>
+            </span>
             <RotationStatusBadge status={r.status} />
             <Lock className="size-4 text-muted-foreground" aria-label="Figé" />
           </li>
         ))}
         {order.map((r, i) => {
           const pos = positions[i]!;
-          const changed = r.memberId !== initial[i]?.memberId;
+          const changed = r.ticketId !== initial[i]?.ticketId;
           return (
-            <li key={r.memberId} className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors", changed && "bg-primary-soft/40")}>
+            <li key={r.ticketId} className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors", changed && "bg-primary-soft/40")}>
               <span className="w-7 text-center text-sm font-semibold tabular-nums">{pos}</span>
               <Avatar name={r.name} src={r.avatarUrl} className="size-8" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
                   {r.name} {r.isMe && <span className="font-normal text-muted-foreground">(vous)</span>}
                 </p>
-                <p className="text-xs text-muted-foreground">{dates[pos] ? formatDate(dates[pos]) : "—"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {r.ticketLabel} · {dates[pos] ? formatDate(dates[pos]) : "—"}
+                </p>
               </div>
               <div className="flex gap-1">
-                <Button variant="outline" size="icon-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Monter ${r.name}`}>
+                <Button variant="outline" size="icon-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Monter ${r.name} (${r.ticketLabel})`}>
                   <ArrowUp />
                 </Button>
-                <Button variant="outline" size="icon-sm" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label={`Descendre ${r.name}`}>
+                <Button variant="outline" size="icon-sm" onClick={() => move(i, 1)} disabled={i === order.length - 1} aria-label={`Descendre ${r.name} (${r.ticketLabel})`}>
                   <ArrowDown />
                 </Button>
               </div>

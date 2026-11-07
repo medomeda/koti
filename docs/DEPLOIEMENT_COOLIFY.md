@@ -59,7 +59,7 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
   ```
   Toutes les sessions sont fermées : les testeurs devront se reconnecter.
 - **Mettre à jour** : `git push` sur `main` puis **Deploy** (ou activer le webhook). Les données de démo sont conservées.
-  Si une mise à jour change le format des données (`SCHEMA_VERSION`), elles sont régénérées automatiquement.
+  Si une mise à jour change le format des données (`SCHEMA_VERSION`), elles sont régénérées automatiquement, sauf le passage 2 → 3 (tickets) qui **migre** les données existantes sans rien perdre et laisse une copie `koti-demo.json.v2.bak` dans le volume.
 - **Une seule instance** de `app` : les données vivent dans la mémoire du processus.
 - Les dates du jeu de démo sont calculées le jour de sa création : pour une campagne longue, réinitialisez de temps en
   temps pour garder des échéances « à venir » réalistes.

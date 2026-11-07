@@ -198,25 +198,25 @@ describe("Scénario 8 — tours de main", () => {
       acceptInvitation(ctxFor(userId(`${who}@koti.demo`)), { token });
     }
     const before = listRotation(ctxFor(ahmed), tid).rows;
-    const reversed = [...before].reverse().map((r) => r.memberId);
-    reorderRotation(ctxFor(ahmed), { tontineId: tid, memberIds: reversed });
+    const reversed = [...before].reverse().map((r) => r.ticketId);
+    reorderRotation(ctxFor(ahmed), { tontineId: tid, ticketIds: reversed });
     const after = listRotation(ctxFor(ahmed), tid).rows;
-    expect(after.map((r) => r.memberId)).toEqual(reversed);
+    expect(after.map((r) => r.ticketId)).toEqual(reversed);
     expect(new Set(after.map((r) => r.position)).size).toBe(after.length);
     expect(after.map((r) => r.scheduledDate)).toEqual([0, 7, 14, 21].map((d) => addDays(addDays(T, 10), d)));
-    expect(() => reorderRotation(ctxFor(userId("mariam@koti.demo")), { tontineId: tid, memberIds: reversed })).toThrow(/droits/);
+    expect(() => reorderRotation(ctxFor(userId("mariam@koti.demo")), { tontineId: tid, ticketIds: reversed })).toThrow(/droits/);
   });
 
   it("après démarrage : motif obligatoire et tours passés figés", () => {
     const ahmed = userId("ahmed@koti.demo");
     const famille = listMyTontines(ctxFor(ahmed)).find((c) => c.name === "Tontine Famille")!.id;
     const rows = listRotation(ctxFor(ahmed), famille).rows;
-    const upcoming = rows.filter((r) => r.status === "UPCOMING").map((r) => r.memberId);
-    expect(() => reorderRotation(ctxFor(ahmed), { tontineId: famille, memberIds: [...upcoming].reverse() })).toThrow(/motif/i);
-    expect(() => reorderRotation(ctxFor(ahmed), { tontineId: famille, memberIds: rows.map((r) => r.memberId) })).toThrow(/modifié/);
-    reorderRotation(ctxFor(ahmed), { tontineId: famille, memberIds: [...upcoming].reverse(), reason: "Demande d'Aminata" });
+    const upcoming = rows.filter((r) => r.status === "UPCOMING").map((r) => r.ticketId);
+    expect(() => reorderRotation(ctxFor(ahmed), { tontineId: famille, ticketIds: [...upcoming].reverse() })).toThrow(/motif/i);
+    expect(() => reorderRotation(ctxFor(ahmed), { tontineId: famille, ticketIds: rows.map((r) => r.ticketId) })).toThrow(/modifié/);
+    reorderRotation(ctxFor(ahmed), { tontineId: famille, ticketIds: [...upcoming].reverse(), reason: "Demande d'Aminata" });
     const after = listRotation(ctxFor(ahmed), famille).rows;
-    expect(after.filter((r) => r.status === "COMPLETED").map((r) => r.memberId)).toEqual(rows.filter((r) => r.status === "COMPLETED").map((r) => r.memberId));
+    expect(after.filter((r) => r.status === "COMPLETED").map((r) => r.ticketId)).toEqual(rows.filter((r) => r.status === "COMPLETED").map((r) => r.ticketId));
   });
 });
 

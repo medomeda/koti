@@ -1,7 +1,7 @@
 # Suivi du projet — KOTI
 
 Document de pilotage. À mettre à jour à chaque livraison (sections 2, 3, 4 et 6).
-Dernière mise à jour : 31/10/2026.
+Dernière mise à jour : 07/11/2026.
 
 Liens : [PRD](PRD.md) · [Architecture et décisions](ARCHITECTURE.md) · [README](../README.md)
 
@@ -19,24 +19,25 @@ utilisateurs sur l'interface et arbitrage des questions ouvertes (section 4).
 | Epic | Sujet | Frontend (phase 1) | Backend (phase 2) |
 |---|---|---|---|
 | 01 | Initialisation Next.js | ✅ Next 16, TS strict, Tailwind 4, Zod 4 | ⬜ Drizzle, PostgreSQL, variables |
-| 02 | Modèle de données | ✅ Types (`src/types/domain.ts`) + base simulée | ⬜ Schéma Drizzle, migrations, index |
+| 02 | Modèle de données | ✅ Types (`src/types/domain.ts`) + base simulée, **tickets et cycles** | ⬜ Schéma Drizzle (dont `tontine_tickets`, `rotation_cycles`), migrations, index |
 | 03 | Authentification | ✅ Inscription, connexion, sessions, mot de passe (simulés) | ⬜ Better Auth, vérification e-mail, reset |
 | 04 | Layout et navigation | ✅ Barre latérale, navigation mobile, états, **PWA installable** | — |
 | 05 | Tontines | ✅ Création, paramètres, cycle de vie | ⬜ Persistance |
 | 06 | Tableau de bord | ✅ | ⬜ Persistance |
 | 07 | Invitations et membres | ✅ Lien sécurisé, acceptation, retrait | ⬜ Envoi e-mail / SMS |
-| 08 | Échéances | ✅ Moteur de fréquence testé | ⬜ Persistance |
+| 08 | Échéances | ✅ Moteur de fréquence testé, **une obligation par ticket** | ⬜ Persistance (`UNIQUE (ticket_id, contribution_period_id)`) |
 | 09 | Paiements | ✅ Déclaration, validation, refus, historique, filtres, regroupements | ⬜ Justificatifs (stockage privé) |
-| 10 | Tours de main | ✅ Ordre, calendrier, historisation | ⬜ Persistance |
+| 10 | Tours de main | ✅ Ordre, calendrier, historisation, **rotation par ticket, cycle initial** | ⬜ Persistance (`rotation_cycles`, `rotation_slots.ticket_id`) |
 | 11 | Notifications | ✅ Internes, rappels, retards | ⬜ E-mails, push PWA, cron réel |
 | 12 | Sécurité et audit | ✅ Relecture indépendante, 10 correctifs | ⬜ Revue après bascule |
-| 13 | Tests et recette | ✅ 46 tests (scénarios PRD 1 à 8) | ⬜ Tests d'intégration base + e2e navigateur |
+| 13 | Tests et recette | ✅ 62 tests (scénarios PRD 1 à 8, tickets, migration) | ⬜ Tests d'intégration base + e2e navigateur |
 | 14 | Mise en production | — | ⬜ Hébergement, sauvegardes, HTTPS |
 
 ## 3. Journal des livraisons
 
 | Date | Livraison |
 |---|---|
+| 07/11/2026 | **Tickets de participation multiples (phase 1, couche simulée)** — spécification : [PRD-V2.md](PRD-V2.md). Un membre garde **une seule adhésion** et peut détenir plusieurs tickets (`TKT-001`…), attribués par l'administrateur **en brouillon uniquement** (paramètres `multipleTicketsAllowed` / `maxTicketsPerMember`, faux/1 par défaut). Une obligation par ticket et par période (unicité période+ticket), un tour de main par ticket, cycle de rotation créé au **démarrage atomique** (contrôles puis figeage), suppression logique d'un ticket avant démarrage (audit, numéro jamais réutilisé). Écrans : membres (tickets, cotisation par période, ajout/suppression), rotation et paiements par ticket, tableau de bord (tickets, tickets en retard). **Migration v2 → v3** non destructive (sauvegarde `koti-demo.json.v2.bak`, ticket initial par adhésion, historique intact, arrêt en cas d'ambiguïté) vérifiée sur le fichier de démonstration réel. 62 tests. |
 | 01/11/2026 | **Application installable (PWA), phase 1** : manifeste et icônes, installation Android (bouton) et iPhone (aide pas à pas), message « Nouvelle version disponible — Mettre à jour » après chaque déploiement, page hors ligne, cache limité aux fichiers techniques (aucune donnée sur l'appareil), cache vidé à la déconnexion. Testé : installabilité Chrome, hors ligne, passage v1 → v2. |
 | 31/10/2026 | **Version de démonstration déployable sur Coolify** : image Docker autonome, volume de données, bandeau « démonstration », page `/guide` pour les testeurs, réinitialisation protégée par secret, sonde `/api/health`. Guide : [DEPLOIEMENT_COOLIFY.md](DEPLOIEMENT_COOLIFY.md). |
 | 31/10/2026 | Mobile : « Alertes » retiré de la barre du bas (4 entrées), accès par la cloche de l'en-tête qui affiche le nombre de non-lues. **Écart volontaire au PRD §4.2** (5 entrées), à la demande du porteur de projet. |
@@ -54,7 +55,7 @@ facile à changer. **Statuts :** 🟡 en attente · ✅ tranchée · ⚪ abandon
 | Q-01 | 31/10 | Après une **suspension**, faut-il **décaler** les tours de main prévus pendant la pause ? | Non : les échéances de la pause ne sont pas réclamées, les tours ne bougent pas (l'admin peut réordonner). Un bénéficiaire prévu pendant la pause perd sa cagnotte s'il n'est pas déplacé. | Moyen : recalcul des dates de tours. | 🟡 |
 | Q-02 | 31/10 | Un membre **retiré après avoir reçu** la cagnotte : que doit-il encore ? | Ses échéances passées restent dues, les futures sont supprimées. Aucun solde calculé. | Moyen : notion de solde par membre. | 🟡 |
 | Q-03 | 31/10 | Le montant déclaré doit-il être **strictement égal** au montant attendu ? | Non : avertissement au membre et à l'admin, l'admin décide. | Faible. | 🟡 |
-| Q-04 | 31/10 | Tontine démarrée avec **moins de membres que prévu** : que deviennent les tours sans bénéficiaire ? | Le cycle garde la durée prévue ; les positions vides n'ont pas de bénéficiaire tant que personne ne rejoint. | Moyen : réduire le cycle au démarrage ? | 🟡 |
+| Q-04 | 31/10 | Tontine démarrée avec **moins de membres que prévu** : que deviennent les tours sans bénéficiaire ? | **Modifiée le 07/11** (tickets) : le cycle compte **un tour par ticket au démarrage** (plus de positions vides). Après démarrage, un nouvel arrivant ne peut que reprendre un tour libéré par un membre retiré. Les tontines déjà démarrées gardent la longueur d'origine (migration). | Moyen : revenir à la durée prévue. | 🟡 |
 | Q-05 | 31/10 | L'admin peut-il **enregistrer un paiement en espèces pour un membre** (cas fréquent sur le terrain) ? | Non (PRD : le membre déclare lui-même). | Faible à moyen : nouvelle action « enregistrer pour un membre » tracée dans l'audit. | 🟡 |
 | Q-06 | 31/10 | Fournisseur **e-mail/SMS** pour les invitations et rappels. | Hébergement tranché : **Coolify sur le VPS personnel** (démo déployée ainsi). E-mail/SMS : à définir avant l'Epic 14. | Conditionne l'envoi automatique des invitations. | 🟡 |
 | Q-07 | 31/10 | **Commit Git** du 31/10 fait sans demande explicite : le conserver ? | Tranchée : le porteur de projet a commité et poussé sur `github.com/medomeda/koti`. | — | ✅ |
@@ -69,14 +70,22 @@ facile à changer. **Statuts :** 🟡 en attente · ✅ tranchée · ⚪ abandon
 | 4 | Justificatifs et photo de profil | Stockage privé + téléchargement contrôlé. | À faire |
 | 5 | Envoi des invitations et rappels | E-mail (et SMS si retenu, cf. Q-06). | À faire |
 | 6 | Tests e2e navigateur | Les parcours Playwright (dont le parcours testeur en mode production) tournent hors dépôt ; en faire une vraie suite. | À faire |
-| 8 | Notifications push (PWA phase 2) | Rappels d'échéance et validation de paiement sur le téléphone (Android, et iPhone si l'application est installée). Nécessite le backend : clés VAPID, enregistrement des abonnements. | À faire (phase 2) |
+| 8 | Notifications push (PWA phase 2) | Rappels d'échéance et validation de paiement sur le téléphone (Android, et iPhone si l'application est installée). Nécessite le backend : clés VAPID, enregistrement des abonnements. Plan détaillé : clés VAPID, bouton d'activation (profil), `push`/`notificationclick` dans `sw.js`, table d'abonnements, `web-push`, préférences, cron réel. **À rappeler au démarrage de la phase 2.** | À faire (phase 2) |
+| 9 | Schéma Drizzle des tickets | Traduire le modèle simulé : `tontine_tickets`, `rotation_cycles`, `ticket_id` sur obligations et tours, unicités, verrou `SELECT … FOR UPDATE` sur la création de ticket (le plafond n'est aujourd'hui protégé que par le caractère synchrone de `tx()`), transaction de démarrage. | À faire (phase 2) |
 | 7 | Test de l'image Docker | Le serveur autonome a été testé en mode production ; l'image elle-même pas en local (Docker Desktop éteint). La valider au premier déploiement Coolify. | À faire |
 
-## 6. État de qualité (dernière vérification : 31/10/2026)
+## 6. État de qualité (dernière vérification : 07/11/2026)
 
-- Tests : 46/46 (Vitest) · TypeScript strict : OK · ESLint : 0 avertissement · `next build` : OK sans avertissement.
+- Tests : 62/62 (Vitest) · TypeScript strict : OK · ESLint : 0 erreur · `next build` : OK (vérifié le 07/11/2026).
 - `npm audit --omit=dev` : 0 vulnérabilité.
 - Rendu vérifié par captures d'écran desktop (1366 px) et mobile (390 px).
+
+### Écarts volontaires au PRD-V2 (tickets)
+
+- Statut de paiement validé : le code garde `PAID` (le PRD-V2 écrit `VALIDATED`), pour ne pas toucher l'historique ni l'interface.
+- Les tours sont **réservés au fil de l'eau** (ordre proposé dès le brouillon, par ticket) puis **figés et rattachés au cycle au démarrage**.
+- Les tours annulés (membre retiré) restent en historique ; la règle « un ticket une seule fois par cycle » vaut pour les tours non annulés.
+- Les tickets d'un membre retiré passent `INACTIVE` (conservés) ; `deletedAt` ne sert qu'à la suppression par l'administrateur avant démarrage.
 
 ## 7. Prise en main
 
@@ -88,13 +97,14 @@ npm run dev     # http://localhost:3700 — comptes de démo sur la page de conn
 Pièges connus :
 - Les données de démonstration sont dans `.data/koti-demo.json` ; changer `SCHEMA_VERSION` (store) les régénère automatiquement.
 - Une régénération invalide les sessions : il faut se reconnecter.
+- Passage v2 → v3 : au premier démarrage, `.data/koti-demo.json` est migré (copie de sécurité `koti-demo.json.v2.bak`). Si la migration détecte une ambiguïté, le serveur refuse de démarrer avec un message précis et le fichier reste intact.
 - Le limiteur de connexion bloque un e-mail 15 min après 8 échecs ; un redémarrage du serveur le remet à zéro.
 
 ## 8. Où trouver quoi
 
 | Besoin | Emplacement |
 |---|---|
-| Règles métier | `src/modules/*/*.service.ts` |
+| Règles métier | `src/modules/*/*.service.ts` ; tickets : `src/modules/tickets/` ; migration : `src/server/db/migrations.ts` |
 | Moteur de fréquence (pur) | `src/modules/contributions/frequency.ts` |
 | Permissions (matrice PRD §5.4) | `src/lib/permissions/index.ts`, contrôle dans `src/server/context.ts` |
 | Server Actions | `src/actions/*` |

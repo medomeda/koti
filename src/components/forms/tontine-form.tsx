@@ -35,6 +35,8 @@ export function TontineForm() {
       startDate: addDays(todayISO(), 7),
       expectedMemberCount: 10,
       rotationMode: "MANUAL",
+      multipleTicketsAllowed: false,
+      maxTicketsPerMember: 1,
     },
   });
   const e = formState.errors;
@@ -95,7 +97,7 @@ export function TontineForm() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Montant de cotisation (FCFA)" required error={e.contributionAmount?.message} hint="Par membre et par échéance.">
+              <Field label="Montant de cotisation (FCFA)" required error={e.contributionAmount?.message} hint="Par ticket et par échéance.">
                 {(p) => <Input {...p} {...register("contributionAmount")} type="number" inputMode="numeric" min={500} step={500} />}
               </Field>
               <Field label="Fréquence" required error={e.frequency?.message}>
@@ -141,9 +143,23 @@ export function TontineForm() {
               <Field label="Date de démarrage" required error={e.startDate?.message} hint="Date de la première échéance.">
                 {(p) => <Input {...p} {...register("startDate")} type="date" />}
               </Field>
-              <Field label="Nombre de membres prévu" required error={e.expectedMemberCount?.message} hint="Détermine la durée du cycle (1 tour par membre).">
+              <Field label="Nombre de membres prévu" required error={e.expectedMemberCount?.message} hint="Nombre maximum de personnes. Le cycle compte un tour par ticket.">
                 {(p) => <Input {...p} {...register("expectedMemberCount")} type="number" inputMode="numeric" min={2} max={100} />}
               </Field>
+            </div>
+            <div className="space-y-3 rounded-lg border border-dashed p-3">
+              <label className="flex items-start gap-3 text-sm">
+                <input type="checkbox" className="mt-0.5 size-4 accent-[var(--primary)]" {...register("multipleTicketsAllowed")} />
+                <span>
+                  <span className="font-medium">Autoriser les tickets multiples</span>
+                  <span className="block text-muted-foreground">Un même membre peut détenir plusieurs tickets (chacun cotise et reçoit un tour). Seul l&apos;administrateur attribue les tickets, avant le démarrage.</span>
+                </span>
+              </label>
+              {v.multipleTicketsAllowed && (
+                <Field label="Nombre maximum de tickets par membre" required error={e.maxTicketsPerMember?.message} hint="La cotisation est la même pour chaque ticket.">
+                  {(p) => <Input {...p} {...register("maxTicketsPerMember")} type="number" inputMode="numeric" min={2} max={20} />}
+                </Field>
+              )}
             </div>
             <Field label="Mode de définition des tours" required hint="Le tirage au sort automatique arrivera dans une prochaine version.">
               {(p) => (
@@ -167,7 +183,7 @@ export function TontineForm() {
               <span className="font-medium tabular-nums">{Number.isFinite(amount) && amount > 0 ? `${formatFCFA(amount)} / ${FREQUENCY_UNIT[v.frequency]}` : "—"}</span>
             </div>
             <div className="flex justify-between gap-2">
-              <span className="text-muted-foreground">Cagnotte par tour</span>
+              <span className="text-muted-foreground">Cagnotte par tour (1 ticket / membre)</span>
               <span className="font-semibold tabular-nums text-primary">{Number.isFinite(amount * count) && amount * count > 0 ? formatFCFA(amount * count) : "—"}</span>
             </div>
             <div className="flex justify-between gap-2">

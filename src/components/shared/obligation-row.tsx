@@ -20,6 +20,7 @@ export function ObligationRow({ o, today, showTontine = true }: { o: ObligationV
         )}
         <p className={cn("text-sm text-muted-foreground", o.status === "LATE" && "text-destructive-soft-foreground")}>
           {showTontine && <>N°{o.periodNumber} · </>}
+          <span className="font-medium text-foreground">{o.ticketLabel}</span> ·{" "}
           {formatDate(o.dueDate)} <span className="text-xs">({relativeDays(o.dueDate, today)})</span>
         </p>
         {o.rejected && o.lastPayment?.rejectionReason && <p className="mt-1 text-xs text-destructive-soft-foreground">Motif du refus : {o.lastPayment.rejectionReason}</p>}
@@ -29,7 +30,7 @@ export function ObligationRow({ o, today, showTontine = true }: { o: ObligationV
         <ObligationStatusBadge status={o.status} />
         {o.canDeclare && (
           <DeclarePaymentButton
-            target={{ id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null }}
+            target={{ id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, ticketLabel: o.ticketLabel, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null }}
             label={o.rejected ? "Redéclarer" : "Déclarer"}
           />
         )}

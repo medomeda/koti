@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Tours de main" };
 export default async function RotationsPage({ params }: { params: Promise<{ tontineId: string }> }) {
   const { tontineId } = await params;
   const user = await requireUser();
-  const { tontine, role, rows, mySlot } = guard(() => listRotation(ctxFor(user.id), tontineId));
+  const { tontine, role, rows, mySlots } = guard(() => listRotation(ctxFor(user.id), tontineId));
   const today = todayISO();
   const active = rows.filter((r) => r.status !== "CANCELLED");
   const cancelled = rows.filter((r) => r.status === "CANCELLED");
@@ -48,6 +48,7 @@ export default async function RotationsPage({ params }: { params: Promise<{ tont
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">
                     {r.name} {r.isMe && <span className="font-normal text-primary">(vous)</span>}
+                    <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{r.ticketLabel}</span>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {r.scheduledDate ? (
@@ -72,7 +73,7 @@ export default async function RotationsPage({ params }: { params: Promise<{ tont
             <ul className="mt-2 flex flex-wrap gap-2">
               {cancelled.map((r) => (
                 <li key={r.slotId} className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground line-through">
-                  {r.name}
+                  {r.name} · {r.ticketLabel}
                 </li>
               ))}
             </ul>
@@ -81,19 +82,23 @@ export default async function RotationsPage({ params }: { params: Promise<{ tont
       </Card>
 
       <div className="space-y-5">
-        <Card className={cn(mySlot && "border-primary/30")}>
+        <Card className={cn(mySlots.length > 0 && "border-primary/30")}>
           <CardContent className="flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-full bg-primary-soft text-primary [&_svg]:size-5">
               <Gift aria-hidden />
             </span>
             <div>
-              <p className="text-sm text-muted-foreground">Ma position</p>
-              {mySlot ? (
-                <p className="font-semibold">
-                  {mySlot.position}
-                  <sup>{mySlot.position === 1 ? "re" : "e"}</sup> sur {active.length}
-                  {mySlot.scheduledDate && <span className="block text-sm font-normal text-muted-foreground">{formatDate(mySlot.scheduledDate)}</span>}
-                </p>
+              <p className="text-sm text-muted-foreground">{mySlots.length > 1 ? "Mes positions" : "Ma position"}</p>
+              {mySlots.length > 0 ? (
+                <ul className="space-y-1">
+                  {mySlots.map((m) => (
+                    <li key={m.slotId} className="font-semibold">
+                      {m.position}
+                      <sup>{m.position === 1 ? "re" : "e"}</sup> sur {active.length} <span className="text-sm font-normal text-muted-foreground">· {m.ticketLabel}</span>
+                      {m.scheduledDate && <span className="block text-sm font-normal text-muted-foreground">{formatDate(m.scheduledDate)}</span>}
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <p className="font-medium">Aucun tour attribué</p>
               )}
@@ -111,11 +116,11 @@ export default async function RotationsPage({ params }: { params: Promise<{ tont
             </CardHeader>
             <CardContent>
               <RotationEditor
-                key={active.map((r) => `${r.memberId}:${r.position}`).join(",")}
+                key={active.map((r) => `${r.ticketId}:${r.position}`).join(",")}
                 tontineId={tontine.id}
                 started={tontine.status !== "DRAFT"}
                 dates={dates}
-                rows={active.map((r) => ({ memberId: r.memberId, name: r.name, avatarUrl: r.avatarUrl, position: r.position, status: r.status, isMe: r.isMe }))}
+                rows={active.map((r) => ({ ticketId: r.ticketId, ticketLabel: r.ticketLabel, name: r.name, avatarUrl: r.avatarUrl, position: r.position, status: r.status, isMe: r.isMe }))}
               />
             </CardContent>
           </Card>

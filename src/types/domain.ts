@@ -38,6 +38,10 @@ export type PaymentStatus = "DECLARED" | "PAID" | "REJECTED";
 
 export type RotationStatus = "UPCOMING" | "CURRENT" | "COMPLETED" | "CANCELLED";
 
+/** ACTIVE = participation en cours ; INACTIVE = ticket conservé pour l'historique (membre retiré, ticket supprimé avant démarrage). */
+export type TicketStatus = "ACTIVE" | "INACTIVE";
+export type RotationCycleStatus = "ACTIVE" | "COMPLETED";
+
 export type NotificationType =
   | "INVITATION_RECEIVED"
   | "INVITATION_ACCEPTED"
@@ -76,6 +80,12 @@ export interface Tontine {
   startDate: ISODate;
   expectedMemberCount: number;
   rotationMode: RotationMode;
+  /** Tickets multiples : désactivés par défaut (un ticket par membre). */
+  multipleTicketsAllowed: boolean;
+  /** Plafond de tickets par membre (1 si les tickets multiples sont désactivés). */
+  maxTicketsPerMember: number;
+  /** Prochain numéro de ticket : jamais réutilisé, même après suppression avant démarrage. */
+  nextTicketNumber: number;
   status: TontineStatus;
   /** Fenêtres de suspension : les échéances qui y tombent ne sont jamais réclamées. */
   pauses: Array<{ from: ISODate; to: ISODate | null }>;
@@ -91,6 +101,31 @@ export interface TontineMember {
   role: MemberRole;
   status: MemberStatus;
   joinedAt: ISODateTime;
+  createdAt: ISODateTime;
+}
+
+/** Participation individuelle d'un membre : porte ses obligations, ses paiements et son tour de main. */
+export interface TontineTicket {
+  id: string;
+  tontineId: string;
+  /** Adhésion propriétaire (une personne = une seule adhésion par tontine, plusieurs tickets possibles). */
+  memberId: string;
+  /** Numéro séquentiel unique dans la tontine, affiché « TKT-001 ». */
+  ticketNumber: number;
+  status: TicketStatus;
+  createdBy: string;
+  createdAt: ISODateTime;
+  /** Suppression logique (avant démarrage uniquement) : la trace d'audit est conservée. */
+  deletedAt: ISODateTime | null;
+}
+
+/** Cycle de rotation : créé au démarrage, il compte autant de tours que de tickets actifs. */
+export interface RotationCycle {
+  id: string;
+  tontineId: string;
+  status: RotationCycleStatus;
+  /** Nombre de tours du cycle (= tickets actifs au démarrage). */
+  size: number;
   createdAt: ISODateTime;
 }
 
@@ -121,7 +156,10 @@ export interface ContributionObligation {
   id: string;
   tontineId: string;
   periodId: string;
+  /** Adhésion propriétaire du ticket (dénormalisée : filtres et affichage). */
   memberId: string;
+  /** Une obligation par ticket et par période. */
+  ticketId: string;
   expectedAmount: number;
   dueDate: ISODate;
   status: StoredObligationStatus;
@@ -149,7 +187,11 @@ export interface Payment {
 export interface RotationSlot {
   id: string;
   tontineId: string;
+  /** Cycle de rattachement ; null tant que la tontine n'a pas démarré. */
+  cycleId: string | null;
   memberId: string;
+  /** La rotation est organisée par ticket. */
+  ticketId: string;
   position: number;
   scheduledDate: ISODate | null;
   status: RotationStatus;

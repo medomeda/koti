@@ -20,6 +20,8 @@ interface Values {
   weekday2: Weekday;
   startDate: string;
   expectedMemberCount: number;
+  multipleTicketsAllowed: boolean;
+  maxTicketsPerMember: number;
 }
 
 export function TontineSettingsForm({ tontineId, initial, financialEditable, readOnly }: { tontineId: string; initial: Values; financialEditable: boolean; readOnly: boolean }) {
@@ -92,6 +94,20 @@ export function TontineSettingsForm({ tontineId, initial, financialEditable, rea
           <Field label="Nombre de membres prévu" required error={err("expectedMemberCount")}>
             {(p) => <Input {...p} type="number" inputMode="numeric" value={v.expectedMemberCount} onChange={(e) => set("expectedMemberCount", Number(e.target.value))} />}
           </Field>
+        </div>
+        <div className="space-y-3 rounded-lg border border-dashed p-3">
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" className="mt-0.5 size-4 accent-[var(--primary)]" checked={v.multipleTicketsAllowed} onChange={(e) => set("multipleTicketsAllowed", e.target.checked)} />
+            <span>
+              <span className="font-medium">Autoriser les tickets multiples</span>
+              <span className="block text-muted-foreground">Le montant de cotisation est identique pour chaque ticket.</span>
+            </span>
+          </label>
+          {v.multipleTicketsAllowed && (
+            <Field label="Nombre maximum de tickets par membre" required error={err("maxTicketsPerMember")}>
+              {(p) => <Input {...p} type="number" inputMode="numeric" min={2} max={20} value={v.maxTicketsPerMember} onChange={(e) => set("maxTicketsPerMember", Number(e.target.value))} />}
+            </Field>
+          )}
         </div>
       </fieldset>
 

@@ -2,6 +2,7 @@ import "server-only";
 import { isoNow, today, type Ctx } from "@/server/context";
 import type { DbState } from "@/server/db/store";
 import { newId } from "@/server/ids";
+import { activeTickets, cycleLength } from "@/modules/tickets/ticket.rules";
 import type { ContributionObligation, ISODate, ObligationStatus, Tontine, TontineMember } from "@/types/domain";
 import { dueDateForPeriod, periodsDueBy } from "./frequency";
 
@@ -35,17 +36,19 @@ export function memberOwesPeriod(member: TontineMember, tontine: Tontine, dueDat
 }
 
 /**
- * Génère les périodes échues + la prochaine, et les obligations des membres actifs.
- * Idempotente : unicité (tontine, n° de période) et (période, membre) vérifiées avant insertion.
+ * Génère les périodes échues + la prochaine, et UNE obligation par ticket actif et par période.
+ * Idempotente : unicité (tontine, n° de période) et (période, ticket) vérifiées avant insertion.
  * Ne fait rien si la tontine n'est pas ACTIVE (suspension = plus de nouvelles échéances).
  * Ne modifie jamais une obligation existante.
  */
 export function ensureObligations(s: DbState, ctx: Ctx, tontine: Tontine): number {
   if (tontine.status !== "ACTIVE") return 0;
-  const cycleLength = tontine.expectedMemberCount;
-  const due = periodsDueBy(tontine.frequency, tontine.startDate, today(ctx), cycleLength, tontine.frequencyConfig);
-  const target = Math.min(cycleLength, due + 1);
+  const length = cycleLength(s, tontine);
+  const due = periodsDueBy(tontine.frequency, tontine.startDate, today(ctx), length, tontine.frequencyConfig);
+  const target = Math.min(length, due + 1);
   const members = s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE");
+  const tickets = activeTickets(s, tontine.id);
+  const existing = new Set(s.contributionObligations.filter((o) => o.tontineId === tontine.id).map((o) => `${o.periodId}:${o.ticketId}`));
   let created = 0;
 
   for (let n = 1; n <= target; n++) {
@@ -56,14 +59,18 @@ export function ensureObligations(s: DbState, ctx: Ctx, tontine: Tontine): numbe
       s.contributionPeriods.push(period);
     }
     if (period.status === "CLOSED") continue;
-    for (const m of members) {
-      if (!memberOwesPeriod(m, tontine, period.dueDate)) continue;
-      if (s.contributionObligations.some((o) => o.periodId === period.id && o.memberId === m.id)) continue;
+    for (const ticket of tickets) {
+      const m = members.find((x) => x.id === ticket.memberId);
+      if (!m || !memberOwesPeriod(m, tontine, period.dueDate)) continue;
+      const key = `${period.id}:${ticket.id}`;
+      if (existing.has(key)) continue;
+      existing.add(key);
       s.contributionObligations.push({
         id: newId(),
         tontineId: tontine.id,
         periodId: period.id,
         memberId: m.id,
+        ticketId: ticket.id,
         expectedAmount: tontine.contributionAmount,
         dueDate: period.dueDate,
         status: "PENDING",
@@ -77,10 +84,10 @@ export function ensureObligations(s: DbState, ctx: Ctx, tontine: Tontine): numbe
 }
 
 /** Prochaine date d'échéance théorique (null si cycle terminé ou tontine non active). */
-export function nextDueDate(tontine: Tontine, todayDate: ISODate): ISODate | null {
+export function nextDueDate(tontine: Tontine, todayDate: ISODate, length: number = tontine.expectedMemberCount): ISODate | null {
   if (tontine.status === "DRAFT") return tontine.startDate >= todayDate ? tontine.startDate : null;
   if (tontine.status !== "ACTIVE") return null;
-  for (let n = 1; n <= tontine.expectedMemberCount; n++) {
+  for (let n = 1; n <= length; n++) {
     const d = dueDateForPeriod(tontine.frequency, tontine.startDate, n, tontine.frequencyConfig);
     if (d >= todayDate && !isInPause(tontine, d)) return d;
   }

@@ -2,7 +2,8 @@ import "server-only";
 import { audit } from "@/modules/audit/audit.service";
 import { ensureObligations } from "@/modules/contributions/contribution.service";
 import { notify } from "@/modules/notifications/notification.service";
-import { appendRotationSlot } from "@/modules/rotations/rotation.service";
+import { hasFreeSlot } from "@/modules/rotations/rotation.service";
+import { issueTicket } from "@/modules/tickets/ticket.service";
 import { FREQUENCY_UNIT } from "@/lib/constants/labels";
 import { formatFCFA } from "@/lib/utils/money";
 import { displayName, isoNow, requireAccess, type Ctx } from "@/server/context";
@@ -42,6 +43,7 @@ export function createInvitation(ctx: Ctx, input: { tontineId: string; email: st
     if (s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").length >= tontine.expectedMemberCount) {
       throw invalidState("Toutes les places prévues sont occupées. Augmentez le nombre de membres prévu (en brouillon) pour inviter davantage.");
     }
+    if (!hasFreeSlot(s, ctx, tontine)) throw invalidState("Tous les tours du cycle sont attribués : aucune place n'est disponible pour un nouveau membre.");
     const existingUser = findUserByContact(s, input.email, input.phone);
     if (existingUser && s.tontineMembers.some((m) => m.tontineId === tontine.id && m.userId === existingUser.id && m.status === "ACTIVE")) {
       throw conflict("Cette personne est déjà membre de la tontine.");
@@ -181,6 +183,8 @@ export function acceptInvitation(ctx: Ctx, ref: RespondRef): string {
     if (existing?.status === "ACTIVE") throw conflict("Vous êtes déjà membre de cette tontine.");
     const activeCount = s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").length;
     if (activeCount >= tontine.expectedMemberCount) throw invalidState("Cette tontine est complète : toutes les places prévues sont occupées.");
+    // Tontine démarrée : le nombre de tickets est figé, un nouveau membre ne peut reprendre qu'un tour libéré.
+    if (!hasFreeSlot(s, ctx, tontine)) throw invalidState("Cette tontine est complète : tous les tours du cycle sont attribués.");
     let memberId: string;
     if (existing) {
       // Contrainte unique (tontine, user) : une ancienne adhésion est réactivée, son historique conservé.
@@ -195,7 +199,8 @@ export function acceptInvitation(ctx: Ctx, ref: RespondRef): string {
     inv.status = "ACCEPTED";
     inv.invitedUserId = ctx.userId;
     inv.respondedAt = isoNow(ctx);
-    appendRotationSlot(s, ctx, tontine, memberId);
+    // Ticket initial de l'adhésion (un seul : les tickets supplémentaires relèvent de l'administrateur, avant démarrage).
+    issueTicket(s, ctx, tontine, memberId);
     ensureObligations(s, ctx, tontine);
     notify(s, ctx, {
       userId: inv.invitedBy,

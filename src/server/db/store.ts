@@ -1,6 +1,7 @@
 import "server-only";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { migrateV2ToV3 } from "./migrations";
 import type {
   AuditLog,
   ContributionObligation,
@@ -8,9 +9,11 @@ import type {
   Invitation,
   Notification,
   Payment,
+  RotationCycle,
   RotationSlot,
   Tontine,
   TontineMember,
+  TontineTicket,
   User,
   UserProfile,
 } from "@/types/domain";
@@ -49,6 +52,8 @@ export interface DbState {
   userProfiles: UserProfile[];
   tontines: Tontine[];
   tontineMembers: TontineMember[];
+  tontineTickets: TontineTicket[];
+  rotationCycles: RotationCycle[];
   invitations: Invitation[];
   contributionPeriods: ContributionPeriod[];
   contributionObligations: ContributionObligation[];
@@ -60,7 +65,7 @@ export interface DbState {
   jobRuns: Array<{ key: string; ranAt: string }>;
 }
 
-const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export function emptyState(): DbState {
   return {
@@ -71,6 +76,8 @@ export function emptyState(): DbState {
     userProfiles: [],
     tontines: [],
     tontineMembers: [],
+    tontineTickets: [],
+    rotationCycles: [],
     invitations: [],
     contributionPeriods: [],
     contributionObligations: [],
@@ -100,14 +107,25 @@ function load(): DbState {
   if (holder.state?.version === SCHEMA_VERSION) return holder.state;
   holder.state = null;
   if (persistEnabled && existsSync(dbPath)) {
+    let parsed: { version?: number } | null = null;
     try {
-      const parsed = JSON.parse(readFileSync(dbPath, "utf8")) as DbState;
-      if (parsed.version === SCHEMA_VERSION) {
-        holder.state = parsed;
-        return parsed;
-      }
+      parsed = JSON.parse(readFileSync(dbPath, "utf8")) as { version?: number };
     } catch {
       // Fichier corrompu : on repart d'un jeu de démonstration propre.
+    }
+    if (parsed?.version === SCHEMA_VERSION) {
+      holder.state = parsed as DbState;
+      return holder.state;
+    }
+    if (parsed?.version === 2) {
+      // Migration NON destructive : sauvegarde du fichier d'origine, puis conversion.
+      // Une ambiguïté interrompt le démarrage (exception) au lieu de régénérer la démo : le fichier reste intact.
+      const backup = `${dbPath}.v2.bak`;
+      if (!existsSync(backup)) copyFileSync(dbPath, backup);
+      const migrated = migrateV2ToV3(parsed);
+      holder.state = migrated;
+      persist(migrated);
+      return migrated;
     }
   }
   const fresh = emptyState();

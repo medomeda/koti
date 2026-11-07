@@ -83,7 +83,7 @@ export default async function TontineOverviewPage({ params }: { params: Promise<
               </li>
               <li className="flex flex-wrap items-center gap-3">
                 <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-semibold">2</span>
-                <span className="flex-1">Définir l&apos;ordre des tours de main</span>
+                <span className="flex-1">Définir l&apos;ordre des tours de main ({o.ticketCount} ticket{o.ticketCount > 1 ? "s" : ""})</span>
                 <Button asChild size="sm" variant="outline">
                   <Link href={`${base}/rotations`}>Organiser</Link>
                 </Button>
@@ -96,7 +96,7 @@ export default async function TontineOverviewPage({ params }: { params: Promise<
             </ol>
             {o.memberCount < tontine.expectedMemberCount && (
               <Alert tone="warning" className="mt-4">
-                {tontine.expectedMemberCount - o.memberCount} place(s) restent libres. Vous pouvez démarrer quand même : les membres qui rejoindront plus tard cotiseront à partir de leur adhésion.
+                {tontine.expectedMemberCount - o.memberCount} place(s) restent libres. Au démarrage, le nombre de tickets est figé : le cycle comptera {o.ticketCount} tour{o.ticketCount > 1 ? "s" : ""}, un par ticket.
               </Alert>
             )}
           </CardContent>
@@ -108,7 +108,7 @@ export default async function TontineOverviewPage({ params }: { params: Promise<
           <StatCard label="Total attendu" value={formatFCFA(o.admin.totalExpected)} hint="Échéances arrivées à terme" icon={<Wallet />} />
           <StatCard label="Total confirmé" value={formatFCFA(o.admin.totalConfirmed)} tone="success" hint={o.admin.totalExpected ? `${Math.round((o.admin.totalConfirmed / o.admin.totalExpected) * 100)} % de l'attendu` : "—"} />
           <StatCard label="À valider" value={o.admin.pendingValidations} tone={o.admin.pendingValidations ? "warning" : "neutral"} hint="Déclarations reçues" icon={<Clock />} href={`${base}/payments?status=DECLARED`} />
-          <StatCard label="Retards" value={o.admin.lateCount} tone={o.admin.lateCount ? "danger" : "neutral"} hint={`${o.admin.membersUpToDate}/${o.memberCount} membres à jour`} icon={<CircleAlert />} href={`${base}/payments?status=LATE`} />
+          <StatCard label="Tickets en retard" value={o.admin.lateTickets} tone={o.admin.lateTickets ? "danger" : "neutral"} hint={`${o.admin.lateCount} échéance(s) · ${o.admin.membersUpToDate}/${o.memberCount} membres à jour`} icon={<CircleAlert />} href={`${base}/payments?status=LATE`} />
         </section>
       ) : (
         <section aria-label="Ma situation" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -133,7 +133,9 @@ export default async function TontineOverviewPage({ params }: { params: Promise<
                   </span>,
                   `${o.memberCount} inscrits / ${tontine.expectedMemberCount} prévus`,
                 ],
-                ["Cotisation", formatFCFA(tontine.contributionAmount)],
+                ["Tickets", `${o.ticketCount} au total${o.myTicketCount > 1 ? ` · dont ${o.myTicketCount} à vous` : ""}`],
+                ["Cotisation par ticket", formatFCFA(tontine.contributionAmount)],
+                ...(o.myTicketCount > 1 ? ([["Ma cotisation par échéance", formatFCFA(o.myTicketCount * tontine.contributionAmount)]] as Array<[string, string]>) : []),
                 [
                   <span key="f" className="inline-flex items-center gap-1">
                     <Repeat className="size-3.5" /> Fréquence
@@ -147,7 +149,7 @@ export default async function TontineOverviewPage({ params }: { params: Promise<
                   </span>,
                   o.nextDueDate ? `${formatDate(o.nextDueDate)} (${relativeDays(o.nextDueDate, today)})` : "—",
                 ],
-                ...(o.admin ? ([["Montant attendu par échéance", formatFCFA(o.admin.expectedPerPeriod)]] as Array<[string, string]>) : []),
+                ...(o.admin ? ([["Montant total attendu par échéance", formatFCFA(o.admin.expectedPerPeriod)]] as Array<[string, string]>) : []),
               ]}
             />
           </CardContent>
@@ -161,11 +163,14 @@ export default async function TontineOverviewPage({ params }: { params: Promise<
                   <Gift aria-hidden />
                 </span>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Mon tour de main</p>
-                  <p className="font-semibold">
-                    Position {o.mySlot.position}
-                    {o.mySlot.scheduledDate && <> · {formatDate(o.mySlot.scheduledDate)}</>}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{o.mySlots.length > 1 ? "Mes tours de main" : "Mon tour de main"}</p>
+                  {o.mySlots.map((m) => (
+                    <p key={m.slotId} className="font-semibold">
+                      Position {m.position}
+                      {o.mySlots.length > 1 && <span className="font-normal text-muted-foreground"> · {m.ticketLabel}</span>}
+                      {m.scheduledDate && <> · {formatDate(m.scheduledDate)}</>}
+                    </p>
+                  ))}
                 </div>
                 {o.mySlot.status === "COMPLETED" && <span className="text-sm font-medium text-primary">Déjà reçu</span>}
               </CardContent>

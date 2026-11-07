@@ -81,11 +81,16 @@ describe("cycle de vie", () => {
   it("une pause courte ne fait pas perdre l'échéance suivante", () => {
     const ahmed = userId("ahmed@koti.demo");
     const tid = tontine(ahmed);
+    // Le cycle compte autant de tours que de tickets au démarrage : on réunit les 3 membres prévus.
+    for (const who of ["mariam", "koffi"]) {
+      const { token } = createInvitation(ctxFor(ahmed), { tontineId: tid, email: `${who}@koti.demo`, phone: null });
+      acceptInvitation(ctxFor(userId(`${who}@koti.demo`)), { token });
+    }
     changeTontineStatus(ctxFor(ahmed), tid, "activate");
     changeTontineStatus(ctxFor(ahmed), tid, "pause");
     changeTontineStatus(ctxFor(ahmed, new Date(Date.now() + DAY)), tid, "resume");
     const next = read((s) => s.contributionObligations.filter((o) => o.tontineId === tid && o.dueDate === addDays(T, 7)).length);
-    expect(next).toBe(1);
+    expect(next).toBe(3); // une obligation par ticket (3 membres, 1 ticket chacun)
   });
 
   it("refuse la clôture tant que des déclarations attendent", () => {

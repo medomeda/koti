@@ -1,7 +1,9 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
 import { effectiveObligationStatus, ensureObligations, isInPause, nextDueDate } from "@/modules/contributions/contribution.service";
-import { appendRotationSlot, listRotation, recomputeRotationDates } from "@/modules/rotations/rotation.service";
+import { listRotation, recomputeRotationDates, startCycle } from "@/modules/rotations/rotation.service";
+import { activeTickets, cycleLength, memberActiveTickets } from "@/modules/tickets/ticket.rules";
+import { issueTicket } from "@/modules/tickets/ticket.service";
 import type { TontineFormValues } from "@/lib/validations";
 import { sumAmounts } from "@/lib/utils/money";
 import { isoNow, requireAccess, today, type Ctx } from "@/server/context";
@@ -14,6 +16,12 @@ function frequencyConfigOf(v: TontineFormValues): FrequencyConfig {
   if (v.frequency !== "TWICE_WEEKLY") return {};
   const days = [v.weekday1, v.weekday2].sort((a, b) => a! - b!) as [Weekday, Weekday];
   return { weekdays: days };
+}
+
+/** Plafond effectif : 1 si les tickets multiples sont désactivés. */
+function ticketPolicyOf(v: { multipleTicketsAllowed?: boolean; maxTicketsPerMember?: number }) {
+  const allowed = v.multipleTicketsAllowed === true;
+  return { multipleTicketsAllowed: allowed, maxTicketsPerMember: allowed ? (v.maxTicketsPerMember ?? 1) : 1 };
 }
 
 /** Création (PRD §6.8) : tontine + adhésion ADMIN acceptée + 1er tour, dans une seule transaction. */
@@ -32,6 +40,8 @@ export function createTontine(ctx: Ctx, v: TontineFormValues): string {
       startDate: v.startDate,
       expectedMemberCount: v.expectedMemberCount,
       rotationMode: v.rotationMode,
+      ...ticketPolicyOf(v),
+      nextTicketNumber: 1,
       status: "DRAFT",
       pauses: [],
       creatorId: ctx.userId,
@@ -41,8 +51,9 @@ export function createTontine(ctx: Ctx, v: TontineFormValues): string {
     s.tontines.push(tontine);
     const memberId = newId();
     s.tontineMembers.push({ id: memberId, tontineId: id, userId: ctx.userId, role: "ADMIN", status: "ACTIVE", joinedAt: now, createdAt: now });
-    appendRotationSlot(s, ctx, tontine, memberId);
-    audit(s, ctx, { tontineId: id, action: "tontine.create", entityType: "tontine", entityId: id, newValues: { name: v.name, contributionAmount: v.contributionAmount, frequency: v.frequency, startDate: v.startDate } });
+    // Premier ticket (et premier tour) de l'administrateur, qui participe comme les autres.
+    issueTicket(s, ctx, tontine, memberId);
+    audit(s, ctx, { tontineId: id, action: "tontine.create", entityType: "tontine", entityId: id, newValues: { name: v.name, contributionAmount: v.contributionAmount, frequency: v.frequency, startDate: v.startDate, ...ticketPolicyOf(v) } });
     return id;
   });
 }
@@ -52,7 +63,7 @@ export function updateTontine(ctx: Ctx, input: { tontineId: string; name: string
   tx((s) => {
     const { tontine } = requireAccess(s, ctx, input.tontineId, "tontine.update");
     if (tontine.status === "COMPLETED" || tontine.status === "CANCELLED") throw invalidState("Une tontine clôturée est en lecture seule.");
-    const old = { name: tontine.name, description: tontine.description, contributionAmount: tontine.contributionAmount, frequency: tontine.frequency, startDate: tontine.startDate, expectedMemberCount: tontine.expectedMemberCount };
+    const old = { name: tontine.name, description: tontine.description, contributionAmount: tontine.contributionAmount, frequency: tontine.frequency, startDate: tontine.startDate, expectedMemberCount: tontine.expectedMemberCount, multipleTicketsAllowed: tontine.multipleTicketsAllowed, maxTicketsPerMember: tontine.maxTicketsPerMember };
     tontine.name = input.name;
     tontine.description = input.description;
     if (input.financial) {
@@ -60,6 +71,13 @@ export function updateTontine(ctx: Ctx, input: { tontineId: string; name: string
       const f = input.financial;
       const active = s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").length;
       if (f.expectedMemberCount < active) throw new AppError("VALIDATION", `Le nombre prévu ne peut pas être inférieur aux ${active} membres actuels.`, { expectedMemberCount: `Minimum : ${active}.` });
+      const policy = ticketPolicyOf(f);
+      const mostTickets = Math.max(0, ...s.tontineMembers.filter((m) => m.tontineId === tontine.id && m.status === "ACTIVE").map((m) => memberActiveTickets(s, m.id).length));
+      if (mostTickets > policy.maxTicketsPerMember) {
+        throw new AppError("VALIDATION", `Un membre détient déjà ${mostTickets} tickets : supprimez d'abord les tickets en trop avant de réduire le maximum.`, { maxTicketsPerMember: `Minimum : ${mostTickets}.` });
+      }
+      tontine.multipleTicketsAllowed = policy.multipleTicketsAllowed;
+      tontine.maxTicketsPerMember = policy.maxTicketsPerMember;
       tontine.contributionAmount = f.contributionAmount;
       tontine.frequency = f.frequency;
       tontine.frequencyConfig = frequencyConfigOf(f);
@@ -68,7 +86,7 @@ export function updateTontine(ctx: Ctx, input: { tontineId: string; name: string
       recomputeRotationDates(s, ctx, tontine);
     }
     tontine.updatedAt = isoNow(ctx);
-    audit(s, ctx, { tontineId: tontine.id, action: "tontine.update", entityType: "tontine", entityId: tontine.id, oldValues: old, newValues: { name: tontine.name, description: tontine.description, contributionAmount: tontine.contributionAmount, frequency: tontine.frequency, startDate: tontine.startDate, expectedMemberCount: tontine.expectedMemberCount } });
+    audit(s, ctx, { tontineId: tontine.id, action: "tontine.update", entityType: "tontine", entityId: tontine.id, oldValues: old, newValues: { name: tontine.name, description: tontine.description, contributionAmount: tontine.contributionAmount, frequency: tontine.frequency, startDate: tontine.startDate, expectedMemberCount: tontine.expectedMemberCount, multipleTicketsAllowed: tontine.multipleTicketsAllowed, maxTicketsPerMember: tontine.maxTicketsPerMember } });
   });
 }
 
@@ -92,6 +110,9 @@ export function changeTontineStatus(ctx: Ctx, tontineId: string, transition: Ton
       throw invalidState("Des paiements déclarés attendent encore votre validation : traitez-les avant de clôturer.");
     }
     const old = tontine.status;
+    // Démarrage atomique : contrôle des membres/tickets/rotation, figeage (cycle), puis obligations (ci-dessous).
+    // Toute erreur annule l'ensemble de la transaction.
+    if (transition === "activate") startCycle(s, ctx, tontine);
     tontine.status = rule.to;
     tontine.updatedAt = isoNow(ctx);
     if (transition === "close" && old === "DRAFT") tontine.status = "CANCELLED";
@@ -142,6 +163,10 @@ export interface TontineCard {
   status: TontineStatus;
   role: MemberRole;
   memberCount: number;
+  ticketCount: number;
+  myTicketCount: number;
+  /** Montant à payer par période par l'utilisateur = ses tickets × cotisation. */
+  myPerPeriod: number;
   expectedMemberCount: number;
   contributionAmount: number;
   frequency: Tontine["frequency"];
@@ -166,10 +191,13 @@ export function listMyTontines(ctx: Ctx): TontineCard[] {
           status: tontine.status,
           role: m.role,
           memberCount: s.tontineMembers.filter((x) => x.tontineId === tontine.id && x.status === "ACTIVE").length,
+          ticketCount: activeTickets(s, tontine.id).length,
+          myTicketCount: memberActiveTickets(s, m.id).length,
+          myPerPeriod: memberActiveTickets(s, m.id).length * tontine.contributionAmount,
           expectedMemberCount: tontine.expectedMemberCount,
           contributionAmount: tontine.contributionAmount,
           frequency: tontine.frequency,
-          nextDueDate: nextDueDate(tontine, t),
+          nextDueDate: nextDueDate(tontine, t, cycleLength(s, tontine)),
           myOutstanding: mine.filter((o) => o.status === "PENDING" || o.status === "REJECTED").length,
           myLate: mine.filter((o) => effectiveObligationStatus(o, t) === "LATE").length,
           pendingValidations: m.role === "ADMIN" ? s.contributionObligations.filter((o) => memberIds.has(o.memberId) && o.status === "DECLARED").length : 0,
@@ -201,9 +229,12 @@ export function getTontineOverview(ctx: Ctx, tontineId: string) {
       tontine,
       role: member.role,
       memberCount: activeMembers.length,
-      nextDueDate: nextDueDate(tontine, t),
+      ticketCount: activeTickets(s, tontineId).length,
+      myTicketCount: memberActiveTickets(s, member.id).length,
+      nextDueDate: nextDueDate(tontine, t, cycleLength(s, tontine)),
       nextBeneficiary,
       mySlot: rotation.mySlot,
+      mySlots: rotation.mySlots,
       pendingInvitations: member.role === "ADMIN" ? s.invitations.filter((i) => i.tontineId === tontineId && i.status === "PENDING" && new Date(i.expiresAt) > ctx.now).length : 0,
     };
 
@@ -232,7 +263,9 @@ export function getTontineOverview(ctx: Ctx, tontineId: string) {
       ...base,
       personal,
       admin: {
-        expectedPerPeriod: tontine.contributionAmount * activeMembers.length,
+        contributionPerTicket: tontine.contributionAmount,
+        expectedPerPeriod: tontine.contributionAmount * activeTickets(s, tontineId).length,
+        lateTickets: new Set(obligations.filter((o) => effectiveObligationStatus(o, t) === "LATE").map((o) => o.ticketId)).size,
         totalExpected: sumAmounts(dueSoFar.map((o) => o.expectedAmount)),
         totalConfirmed: sumAmounts(paidPayments.map((p) => p.amount)),
         pendingValidations: obligations.filter((o) => o.status === "DECLARED").length,

@@ -23,6 +23,8 @@ export interface DeclareTarget {
   expectedAmount: number;
   dueDate: string;
   periodNumber: number;
+  /** Ticket concerné par la déclaration. */
+  ticketLabel?: string;
   rejectionReason?: string | null;
 }
 
@@ -65,7 +67,7 @@ function DeclarePaymentDialog({ target, open, onOpenChange }: { target: DeclareT
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader title="Déclarer un paiement" description={`${target.tontineName} · échéance n°${target.periodNumber} du ${formatDate(target.dueDate)}`} />
+        <DialogHeader title="Déclarer un paiement" description={`${target.tontineName} · ${target.ticketLabel ? `${target.ticketLabel} · ` : ""}échéance n°${target.periodNumber} du ${formatDate(target.dueDate)}`} />
         <form onSubmit={onSubmit} noValidate className="contents">
           <DialogBody>
             {target.rejectionReason && (

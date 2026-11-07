@@ -4,7 +4,9 @@ import { addDays, parseISODate, todayISO } from "@/lib/utils/dates";
 import { ensureObligations } from "@/modules/contributions/contribution.service";
 import { acceptInvitation, createInvitation } from "@/modules/invitations/invitation.service";
 import { declarePayment, rejectPayment, validatePayment } from "@/modules/payments/payment.service";
+import { removeMember } from "@/modules/members/member.service";
 import { reorderRotation } from "@/modules/rotations/rotation.service";
+import { createTicket } from "@/modules/tickets/ticket.service";
 import { changeTontineStatus, createTontine } from "@/modules/tontines/tontine.service";
 import { registerUser } from "@/modules/users/user.service";
 import { runScheduledJobs } from "@/server/jobs";
@@ -65,6 +67,8 @@ export function seedDemo(s: DbState) {
   };
 
   const memberIdOf = (tontineId: string, who: string) => s.tontineMembers.find((m) => m.tontineId === tontineId && m.userId === ids[who])!.id;
+  /** Premier ticket (TKT le plus ancien) d'un membre. */
+  const ticketIdOf = (tontineId: string, who: string) => s.tontineTickets.filter((tk) => tk.memberId === memberIdOf(tontineId, who) && tk.status === "ACTIVE").sort((a, b) => a.ticketNumber - b.ticketNumber)[0]!.id;
 
   /** Règle les obligations échues selon un scénario par membre. */
   const settle = (tontineId: string, admin: string, scenario: (who: string, periodNumber: number, isPast: boolean) => "paid" | "late" | "declared" | "rejected" | "rejected-then-paid" | "skip") => {
@@ -106,7 +110,7 @@ export function seedDemo(s: DbState) {
     rotationMode: "MANUAL",
   });
   for (const [i, who] of ["mariam", "koffi", "awa", "ibrahim", "fatou", "seydou", "aminata"].entries()) invite("ahmed", famille, who, addDays(T, -49 + i));
-  reorderRotation(c("ahmed", addDays(T, -42)), { tontineId: famille, memberIds: ["mariam", "ahmed", "awa", "koffi", "fatou", "ibrahim", "aminata", "seydou"].map((w) => memberIdOf(famille, w)) });
+  reorderRotation(c("ahmed", addDays(T, -42)), { tontineId: famille, ticketIds: ["mariam", "ahmed", "awa", "koffi", "fatou", "ibrahim", "aminata", "seydou"].map((w) => ticketIdOf(famille, w)) });
   changeTontineStatus(c("ahmed", addDays(T, -41)), famille, "activate");
 
   // 2. Épargne Bureau — Ahmed admin, mensuelle.
@@ -146,8 +150,13 @@ export function seedDemo(s: DbState) {
     startDate: addDays(T, 15),
     expectedMemberCount: 12,
     rotationMode: "MANUAL",
+    multipleTicketsAllowed: true,
+    maxTicketsPerMember: 3,
   });
   invite("ahmed", tabaski, "mariam", addDays(T, -4));
+  // Tickets multiples : Ahmed (admin) et Mariam détiennent chacun 2 tickets avant le démarrage.
+  createTicket(c("ahmed", addDays(T, -4)), { tontineId: tabaski, memberId: memberIdOf(tabaski, "ahmed") });
+  createTicket(c("ahmed", addDays(T, -4)), { tontineId: tabaski, memberId: memberIdOf(tabaski, "mariam") });
   createInvitation(c("ahmed", addDays(T, -3)), { tontineId: tabaski, email: "seydou@koti.demo", phone: null });
   createInvitation(c("ahmed", addDays(T, -1)), { tontineId: tabaski, email: "nouveau.membre@exemple.ci", phone: null });
   createInvitation(c("ahmed", addDays(T, -2)), { tontineId: tabaski, email: null, phone: "+2250799887766" });
@@ -164,7 +173,6 @@ export function seedDemo(s: DbState) {
   });
   for (const who of ["yao", "seydou"]) invite("koffi", riviera, who, addDays(T, -58));
   changeTontineStatus(c("koffi", addDays(T, -50)), riviera, "activate");
-  createInvitation(c("koffi", addDays(T, -1)), { tontineId: riviera, email: "ahmed@koti.demo", phone: null });
 
   // 6. Collègues Plateau — Yao admin, Ahmed membre, suspendue.
   const plateau = createTontine(c("yao", addDays(T, -80)), {
@@ -199,6 +207,10 @@ export function seedDemo(s: DbState) {
     return "paid";
   });
   settle(riviera, "koffi", (_w, _n, past) => (past ? "paid" : "skip"));
+  // Seydou quitte l'association : son futur tour est libéré, ce qui permet d'inviter Ahmed à le reprendre
+  // (une fois la tontine démarrée, le nombre de tours est figé : on ne peut que reprendre une place libérée).
+  removeMember(c("koffi", addDays(T, -2)), { tontineId: riviera, memberId: memberIdOf(riviera, "seydou"), reason: "Départ de l'association" });
+  createInvitation(c("koffi", addDays(T, -1)), { tontineId: riviera, email: "ahmed@koti.demo", phone: null });
   settle(plateau, "yao", (who, _n, past) => (past ? (who === "kadi" ? "late" : "paid") : "skip"));
   changeTontineStatus(c("yao", addDays(T, -3)), plateau, "pause");
 

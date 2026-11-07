@@ -11,7 +11,7 @@ import { formatFCFA, sumAmounts } from "@/lib/utils/money";
 import type { ObligationView } from "@/modules/payments/payment.service";
 
 function declareTarget(o: ObligationView) {
-  return { id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null };
+  return { id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, ticketLabel: o.ticketLabel, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null };
 }
 
 function hasPrimaryAction(o: ObligationView, isAdmin: boolean) {
@@ -26,7 +26,7 @@ function RowActions({ o, isAdmin, withHistory = true }: { o: ObligationView; isA
         <ReviewActions paymentId={p.id} memberName={o.memberName} amount={p.amount} expectedAmount={o.expectedAmount} method={PAYMENT_METHOD_LABEL[p.paymentMethod]} reference={p.reference} paymentDate={p.paymentDate} />
       )}
       {o.canDeclare && <DeclarePaymentButton target={declareTarget(o)} label={o.rejected ? "Redéclarer" : "Déclarer"} />}
-      {withHistory && <HistoryButton obligationId={o.id} label={`${o.memberName} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />}
+      {withHistory && <HistoryButton obligationId={o.id} label={`${o.memberName} · ${o.ticketLabel} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />}
     </div>
   );
 }
@@ -45,7 +45,9 @@ export function ObligationsTable({ rows, isAdmin, hide }: { rows: ObligationView
           <li key={o.id} className="space-y-2 px-4 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-medium">{showMember ? o.memberName : `Échéance n°${o.periodNumber}`}</p>
+                <p className="font-medium">
+                  {showMember ? o.memberName : `Échéance n°${o.periodNumber}`} <span className="text-xs font-normal text-muted-foreground">· {o.ticketLabel}</span>
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {showMember && showPeriod && <>N°{o.periodNumber} · </>}
                   {formatDate(o.dueDate)}
@@ -55,7 +57,7 @@ export function ObligationsTable({ rows, isAdmin, hide }: { rows: ObligationView
                 <p className="font-semibold tabular-nums">{formatFCFA(o.lastPayment?.amount ?? o.expectedAmount)}</p>
                 <div className="mt-0.5 flex items-center justify-end gap-1">
                   <ObligationStatusBadge status={o.status} />
-                  <HistoryButton obligationId={o.id} label={`${o.memberName} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />
+                  <HistoryButton obligationId={o.id} label={`${o.memberName} · ${o.ticketLabel} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />
                 </div>
               </div>
             </div>
@@ -85,7 +87,12 @@ export function ObligationsTable({ rows, isAdmin, hide }: { rows: ObligationView
           <TableBody>
             {rows.map((o) => (
               <TableRow key={o.id} className={cn(o.status === "DECLARED" && isAdmin && "bg-warning-soft/40")}>
-                {showMember && <TableCell className="truncate font-medium">{o.memberName}</TableCell>}
+                {showMember && (
+                  <TableCell className="truncate font-medium">
+                    {o.memberName}
+                    <span className="block text-xs font-normal text-muted-foreground">{o.ticketLabel}</span>
+                  </TableCell>
+                )}
                 {showPeriod && (
                   <TableCell>
                     <span className="font-medium">N°{o.periodNumber}</span>

@@ -1,6 +1,7 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
 import { effectiveObligationStatus } from "@/modules/contributions/contribution.service";
+import { formatTicketNumber, memberActiveTickets } from "@/modules/tickets/ticket.rules";
 import { notify } from "@/modules/notifications/notification.service";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA, sumAmounts } from "@/lib/utils/money";
@@ -20,6 +21,11 @@ export interface ObligationView {
   periodNumber: number;
   memberId: string;
   memberName: string;
+  /** Ticket concerné (une obligation = un ticket = une période). */
+  ticketId: string;
+  ticketLabel: string;
+  /** Nombre de tickets actifs du membre : l'étiquette du ticket n'est mise en avant que s'il en a plusieurs. */
+  memberTicketCount: number;
   expectedAmount: number;
   dueDate: ISODate;
   status: ObligationStatus;
@@ -69,6 +75,7 @@ function toObligationView(s: Readonly<DbState>, o: ContributionObligation, t: IS
   const member = s.tontineMembers.find((m) => m.id === o.memberId)!;
   const period = s.contributionPeriods.find((p) => p.id === o.periodId)!;
   const last = paymentsOf(s, o.id)[0];
+  const ticket = s.tontineTickets.find((x) => x.id === o.ticketId)!;
   return {
     id: o.id,
     tontineId: o.tontineId,
@@ -77,6 +84,9 @@ function toObligationView(s: Readonly<DbState>, o: ContributionObligation, t: IS
     periodNumber: period.periodNumber,
     memberId: o.memberId,
     memberName: displayName(s, member.userId),
+    ticketId: o.ticketId,
+    ticketLabel: formatTicketNumber(ticket.ticketNumber),
+    memberTicketCount: memberActiveTickets(s, o.memberId).length,
     expectedAmount: o.expectedAmount,
     dueDate: o.dueDate,
     status: effectiveObligationStatus(o, t),

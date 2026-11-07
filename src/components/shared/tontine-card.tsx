@@ -25,7 +25,13 @@ export function TontineCard({ t }: { t: TontineCardData }) {
           <Users className="size-4" aria-hidden />
           {t.memberCount} membre{t.memberCount > 1 ? "s" : ""}
           <span className="text-xs">/ {t.expectedMemberCount} prévus</span>
+          {t.ticketCount !== t.memberCount && <span className="text-xs">· {t.ticketCount} tickets</span>}
         </p>
+        {t.myTicketCount > 1 && (
+          <p className="text-xs text-muted-foreground">
+            Vous : {t.myTicketCount} tickets · {formatFCFA(t.myPerPeriod)} / {FREQUENCY_UNIT[t.frequency]}
+          </p>
+        )}
         <p className="text-base font-semibold tabular-nums">
           {formatFCFA(t.contributionAmount)} <span className="text-sm font-normal text-muted-foreground">/ {FREQUENCY_UNIT[t.frequency]}</span>
         </p>

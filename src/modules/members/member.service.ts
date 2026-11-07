@@ -1,6 +1,7 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
 import { effectiveObligationStatus } from "@/modules/contributions/contribution.service";
+import { formatTicketNumber, memberActiveTickets } from "@/modules/tickets/ticket.rules";
 import { isoNow, requireAccess, today, type Ctx } from "@/server/context";
 import { read, tx } from "@/server/db/store";
 import { forbidden, invalidState, notFound } from "@/server/errors";
@@ -20,6 +21,13 @@ export interface MemberView {
   phone: string | null;
   lateCount: number | null;
   rotationPosition: number | null;
+  /** Une personne = une ligne, quel que soit son nombre de tickets. */
+  ticketCount: number;
+  /** Cotisation totale par période = tickets × montant par ticket. */
+  perPeriodAmount: number;
+  /** Détail des tickets : administrateur, ou membre pour ses propres tickets. */
+  tickets: Array<{ id: string; label: string; rotationPosition: number | null }> | null;
+  rotationPositions: number[];
 }
 
 export function listMembers(ctx: Ctx, tontineId: string, opts: { includeFormer?: boolean } = {}) {
@@ -33,7 +41,8 @@ export function listMembers(ctx: Ctx, tontineId: string, opts: { includeFormer?:
       .map((m) => {
         const profile = s.userProfiles.find((p) => p.userId === m.userId);
         const user = s.users.find((u) => u.id === m.userId);
-        const slot = s.rotationSlots.find((r) => r.memberId === m.id && r.status !== "CANCELLED");
+        const slots = s.rotationSlots.filter((r) => r.memberId === m.id && r.status !== "CANCELLED").sort((a, b) => a.position - b.position);
+        const tickets = memberActiveTickets(s, m.id);
         return {
           id: m.id,
           userId: m.userId,
@@ -46,7 +55,14 @@ export function listMembers(ctx: Ctx, tontineId: string, opts: { includeFormer?:
           email: isAdmin ? (user?.email ?? null) : null,
           phone: isAdmin ? (profile?.phone ?? null) : null,
           lateCount: isAdmin ? s.contributionObligations.filter((o) => o.memberId === m.id && effectiveObligationStatus(o, t) === "LATE").length : null,
-          rotationPosition: slot?.position ?? null,
+          rotationPosition: slots[0]?.position ?? null,
+          rotationPositions: slots.map((x) => x.position),
+          ticketCount: tickets.length,
+          perPeriodAmount: tickets.length * tontine.contributionAmount,
+          tickets:
+            isAdmin || m.id === me.id
+              ? tickets.map((tk) => ({ id: tk.id, label: formatTicketNumber(tk.ticketNumber), rotationPosition: slots.find((x) => x.ticketId === tk.id)?.position ?? null }))
+              : null,
         };
       })
       .sort((a, b) => (a.status === "ACTIVE" ? 0 : 1) - (b.status === "ACTIVE" ? 0 : 1) || (a.role === "ADMIN" ? -1 : 0) - (b.role === "ADMIN" ? -1 : 0) || a.name.localeCompare(b.name, "fr"));
@@ -69,6 +85,8 @@ export function removeMember(ctx: Ctx, input: { tontineId: string; memberId: str
 
     const t = today(ctx);
     target.status = "REMOVED";
+    // Les tickets sont conservés pour l'historique mais ne participent plus (obligations et tours ci-dessous).
+    for (const tk of s.tontineTickets) if (tk.memberId === target.id && tk.status === "ACTIVE") tk.status = "INACTIVE";
     const removable = new Set(
       s.contributionObligations
         .filter((o) => o.memberId === target.id && o.status === "PENDING" && o.dueDate > t && !s.payments.some((p) => p.obligationId === o.id))

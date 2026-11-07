@@ -82,8 +82,14 @@ export const tontineFormSchema = z
     startDate: isoDate,
     expectedMemberCount: z.coerce.number({ message: "Nombre requis." }).int().min(2, "Au moins 2 membres.").max(100, "100 membres maximum."),
     rotationMode: z.literal("MANUAL"),
+    /** Tickets multiples : désactivés par défaut ; le plafond est ignoré (1) quand ils sont désactivés. */
+    multipleTicketsAllowed: z.boolean().optional(),
+    maxTicketsPerMember: z.coerce.number({ message: "Nombre requis." }).int("Nombre entier requis.").min(1, "Au moins 1 ticket.").max(20, "20 tickets maximum.").optional(),
   })
   .superRefine((d, ctx) => {
+    if (d.multipleTicketsAllowed && (d.maxTicketsPerMember ?? 1) < 2) {
+      ctx.addIssue({ code: "custom", path: ["maxTicketsPerMember"], message: "Indiquez un maximum d'au moins 2 tickets, ou désactivez les tickets multiples." });
+    }
     if (d.frequency === "TWICE_WEEKLY") {
       if (d.weekday1 === undefined || d.weekday2 === undefined) {
         ctx.addIssue({ code: "custom", path: ["weekday2"], message: "Choisissez deux jours." });
@@ -142,7 +148,7 @@ export const rejectPaymentSchema = z.object({
 
 export const reorderRotationSchema = z.object({
   tontineId: z.string().uuid(),
-  memberIds: z.array(z.string().uuid()).min(1).max(200),
+  ticketIds: z.array(z.string().uuid()).min(1).max(500),
   reason: z.string().trim().max(300).optional(),
 });
 

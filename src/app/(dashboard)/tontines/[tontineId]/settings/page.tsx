@@ -30,6 +30,8 @@ const ACTION_LABEL: Record<string, string> = {
   "invitation.accept": "Invitation acceptée",
   "invitation.refuse": "Invitation refusée",
   "member.remove": "Membre retiré",
+  "ticket.create": "Ticket attribué",
+  "ticket.delete": "Ticket supprimé",
   "payment.declare": "Paiement déclaré",
   "payment.validate": "Paiement validé",
   "payment.reject": "Paiement refusé",
@@ -84,6 +86,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ tonti
                 weekday2: (tontine.frequencyConfig.weekdays?.[1] ?? 5) as Weekday,
                 startDate: tontine.startDate,
                 expectedMemberCount: tontine.expectedMemberCount,
+                multipleTicketsAllowed: tontine.multipleTicketsAllowed,
+                maxTicketsPerMember: tontine.maxTicketsPerMember,
               }}
             />
           </CardContent>
