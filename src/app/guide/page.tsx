@@ -37,7 +37,17 @@ const SCENARIOS: Array<{ title: string; as: string; steps: string[] }> = [
   {
     title: "Organiser les tours de main",
     as: "Ahmed",
-    steps: ["Ouvrez « Projet Tabaski 2027 » (brouillon) → Tours de main.", "Changez l'ordre de passage et enregistrez.", "Démarrez la tontine depuis la Vue d'ensemble."],
+    steps: ["Ouvrez « Projet Tabaski 2027 » (brouillon) → Tours de main.", "Changez l'ordre de passage (un tour par ticket) et enregistrez.", "Démarrez la tontine depuis la Vue d'ensemble."],
+  },
+  {
+    title: "Gérer plusieurs tickets pour un même membre",
+    as: "Ahmed (administrateur)",
+    steps: [
+      "Ouvrez « Projet Tabaski 2027 » → Membres : Ahmed et Mariam ont plusieurs tickets (maximum 3), mais n'apparaissent qu'une fois dans la liste.",
+      "Cliquez sur « Ajouter un ticket » pour Mariam : lisez le récapitulatif (tickets avant/après, nouvelle cotisation par période) puis confirmez.",
+      "Dans Tours de main, constatez qu'un même membre apparaît une fois par ticket. Démarrez la tontine : le bouton « Ajouter un ticket » disparaît.",
+      "Dans Paiements, vérifiez qu'il y a une échéance par ticket et qu'en payer une ne règle pas les autres.",
+    ],
   },
   {
     title: "Vérifier la confidentialité",

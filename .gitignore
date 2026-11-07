@@ -9,3 +9,6 @@ next-env.d.ts
 .env*.local
 .DS_Store
 coverage
+
+# Généré automatiquement par `next dev` (consignes pour assistants IA)
+AGENTS.md
