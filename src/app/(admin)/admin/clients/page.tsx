@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { PLAN_TONE } from "@/lib/constants/admin-labels";
-import { PLANS } from "@/lib/marketing/plans";
 import { formatDate } from "@/lib/utils/dates";
 import { listClients, type ClientFilters } from "@/modules/admin/admin.service";
 import { ctxFor } from "@/server/context";
@@ -33,7 +32,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
   const user = await requireUser("/admin/clients");
   const filters: ClientFilters = {
     q: one(sp.q)?.slice(0, 80),
-    plan: PLANS.some((p) => p.id === one(sp.plan)) ? (one(sp.plan) as PlanId) : undefined,
+    plan: ["FREE", "PRO", "ASSOCIATION"].includes(one(sp.plan) ?? "") ? (one(sp.plan) as PlanId) : undefined,
     status: ["ACTIVE", "SUSPENDED", "TRIAL"].includes(one(sp.status) ?? "") ? (one(sp.status) as ClientFilters["status"]) : undefined,
     type: ["organizer", "member"].includes(one(sp.type) ?? "") ? (one(sp.type) as ClientFilters["type"]) : undefined,
     activity: one(sp.activity) === "inactive" ? "inactive" : undefined,
@@ -68,7 +67,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
             Offre
             <NativeSelect name="plan" defaultValue={filters.plan ?? ""}>
               <option value="">Toutes</option>
-              {PLANS.map((p) => (
+              {data.plans.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </NativeSelect>

@@ -257,6 +257,20 @@ export interface Notification {
   createdAt: ISODateTime;
 }
 
+/**
+ * Réglage d'une offre modifié par l'équipe KOTI. Les valeurs d'origine vivent dans lib/marketing/plans.ts ;
+ * un réglage les remplace (nom, accroche, prix, limites). Les factures déjà émises ne changent jamais.
+ */
+export interface PlanSetting {
+  planId: PlanId;
+  name: string;
+  tagline: string;
+  monthlyPrice: number;
+  limits: { tontines: number; membersPerTontine: number; ticketsPerTontine: number; multipleTickets: boolean };
+  updatedAt: ISODateTime;
+  updatedBy: string;
+}
+
 /** Note interne de l'équipe KOTI sur un client : jamais visible par le client. */
 export interface AdminNote {
   id: string;

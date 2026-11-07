@@ -13,7 +13,6 @@ import { requireUser } from "@/lib/auth/session";
 import { HEALTH, PLAN_TONE } from "@/lib/constants/admin-labels";
 import { FREQUENCY_UNIT } from "@/lib/constants/labels";
 import { platformCan } from "@/lib/permissions/platform";
-import { PLANS } from "@/lib/marketing/plans";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
 import { getClient, platformRoleOf } from "@/modules/admin/admin.service";
@@ -54,7 +53,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ us
           name={c.user.name}
           suspended={suspended}
           currentPlan={c.plan.id}
-          plans={PLANS}
+          plans={c.plans}
           can={{ suspend: platformCan(role, "client.suspend"), plan: platformCan(role, "client.plan"), trial: platformCan(role, "client.trial"), note: platformCan(role, "client.note") }}
         />
       </div>

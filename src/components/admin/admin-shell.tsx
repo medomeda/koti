@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CreditCard, LayoutDashboard, LogOut, Mail, Users, Landmark } from "lucide-react";
+import { ArrowLeft, CreditCard, LayoutDashboard, LogOut, Mail, SlidersHorizontal, Users, Landmark } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/clients", label: "Clients", icon: Users },
   { href: "/admin/tontines", label: "Tontines", icon: Landmark },
   { href: "/admin/abonnements", label: "Abonnements", icon: CreditCard },
+  { href: "/admin/offres", label: "Offres", icon: SlidersHorizontal },
   { href: "/admin/messages", label: "Messages", icon: Mail },
 ] as const;
 

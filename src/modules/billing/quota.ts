@@ -12,7 +12,18 @@ import { activeTickets } from "@/modules/tickets/ticket.rules";
  */
 export const COUNTED_STATUSES: TontineStatus[] = ["DRAFT", "ACTIVE", "PAUSED"];
 
-export const planById = (id: PlanId): Plan => PLANS.find((p) => p.id === id) ?? PLANS[0]!;
+/** Offres effectives : valeurs d'origine (plans.ts) recouvertes par les réglages de l'équipe KOTI. */
+export function allPlans(s: Readonly<DbState>): Plan[] {
+  return PLANS.map((p) => {
+    const o = s.planSettings.find((x) => x.planId === p.id);
+    return o ? { ...p, name: o.name, tagline: o.tagline, monthlyPrice: o.monthlyPrice, limits: { ...o.limits } } : p;
+  });
+}
+
+export function planById(s: Readonly<DbState>, id: PlanId): Plan {
+  const plans = allPlans(s);
+  return plans.find((p) => p.id === id) ?? plans[0]!;
+}
 
 export function subscriptionOf(s: Readonly<DbState>, userId: string): Subscription | null {
   return s.subscriptions.find((x) => x.userId === userId) ?? null;
@@ -20,7 +31,7 @@ export function subscriptionOf(s: Readonly<DbState>, userId: string): Subscripti
 
 export function planOf(s: Readonly<DbState>, userId: string): Plan {
   const sub = subscriptionOf(s, userId);
-  return planById(sub?.planId ?? "FREE");
+  return planById(s, sub?.planId ?? "FREE");
 }
 
 /** Tontines non clôturées créées par l'utilisateur (celles qui comptent dans le quota). */
@@ -32,14 +43,15 @@ export function activeMemberCount(s: Readonly<DbState>, tontineId: string): numb
   return s.tontineMembers.filter((m) => m.tontineId === tontineId && m.status === "ACTIVE").length;
 }
 
-function nextPlan(plan: Plan): Plan | null {
-  const i = PLANS.findIndex((p) => p.id === plan.id);
-  return PLANS[i + 1] ?? null;
+function nextPlan(s: Readonly<DbState>, plan: Plan): Plan | null {
+  const plans = allPlans(s);
+  const i = plans.findIndex((p) => p.id === plan.id);
+  return plans[i + 1] ?? null;
 }
 
 /** Phrase d'invitation à changer d'offre, ajoutée à chaque refus de quota. */
-function upgradeHint(plan: Plan): string {
-  const next = nextPlan(plan);
+function upgradeHint(s: Readonly<DbState>, plan: Plan): string {
+  const next = nextPlan(s, plan);
   return next ? ` Passez à l'offre « ${next.name} » depuis « Mon abonnement ».` : " Contactez-nous pour une offre sur mesure.";
 }
 
@@ -49,7 +61,7 @@ export function assertCanCreateTontine(s: Readonly<DbState>, userId: string) {
   const plan = planOf(s, userId);
   const used = ownedLiveTontines(s, userId).length;
   if (used >= plan.limits.tontines) {
-    throw new AppError("INVALID_STATE", `Votre offre « ${plan.name} » permet ${plural(plan.limits.tontines, "tontine", "tontines")} en cours : vous en avez déjà ${used}.${upgradeHint(plan)}`);
+    throw new AppError("INVALID_STATE", `Votre offre « ${plan.name} » permet ${plural(plan.limits.tontines, "tontine", "tontines")} en cours : vous en avez déjà ${used}.${upgradeHint(s, plan)}`);
   }
 }
 
@@ -62,12 +74,12 @@ export function assertSettingsFit(
 ) {
   const plan = planOf(s, ownerId);
   if (next.expectedMemberCount > plan.limits.membersPerTontine && next.expectedMemberCount > (previous?.expectedMemberCount ?? 0)) {
-    throw new AppError("VALIDATION", `Votre offre « ${plan.name} » est limitée à ${plan.limits.membersPerTontine} membres par tontine.${upgradeHint(plan)}`, {
+    throw new AppError("VALIDATION", `Votre offre « ${plan.name} » est limitée à ${plan.limits.membersPerTontine} membres par tontine.${upgradeHint(s, plan)}`, {
       expectedMemberCount: `Maximum : ${plan.limits.membersPerTontine} avec votre offre.`,
     });
   }
   if (next.multipleTicketsAllowed && !plan.limits.multipleTickets && !previous?.multipleTicketsAllowed) {
-    throw new AppError("VALIDATION", `Les tickets multiples ne sont pas inclus dans l'offre « ${plan.name} ».${upgradeHint(plan)}`, {
+    throw new AppError("VALIDATION", `Les tickets multiples ne sont pas inclus dans l'offre « ${plan.name} ».${upgradeHint(s, plan)}`, {
       multipleTicketsAllowed: "Non inclus dans votre offre.",
     });
   }

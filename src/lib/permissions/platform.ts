@@ -12,6 +12,7 @@ export const PLATFORM_PERMISSIONS = {
   "client.suspend": ["SUPER_ADMIN"],
   "client.plan": ["SUPER_ADMIN"],
   "client.trial": ["SUPER_ADMIN"],
+  "plan.edit": ["SUPER_ADMIN"],
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PlatformPermission = keyof typeof PLATFORM_PERMISSIONS;

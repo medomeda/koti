@@ -1,7 +1,7 @@
 import "server-only";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { migrateV2ToV3, migrateV3ToV4, migrateV4ToV5, migrateV5ToV6 } from "./migrations";
+import { migrateV2ToV3, migrateV3ToV4, migrateV4ToV5, migrateV5ToV6, migrateV6ToV7 } from "./migrations";
 import type {
   AdminNote,
   AuditLog,
@@ -12,6 +12,7 @@ import type {
   Invitation,
   Notification,
   Payment,
+  PlanSetting,
   RotationCycle,
   RotationSlot,
   Subscription,
@@ -72,11 +73,13 @@ export interface DbState {
   invoices: Invoice[];
   /** Notes internes de l'équipe KOTI sur les clients (espace d'administration). */
   adminNotes: AdminNote[];
+  /** Réglages d'offres modifiés depuis l'administration (vide = valeurs d'origine). */
+  planSettings: PlanSetting[];
   /** Verrous des tâches planifiées (protection contre les exécutions multiples). */
   jobRuns: Array<{ key: string; ranAt: string }>;
 }
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export function emptyState(): DbState {
   return {
@@ -100,6 +103,7 @@ export function emptyState(): DbState {
     subscriptions: [],
     invoices: [],
     adminNotes: [],
+    planSettings: [],
     jobRuns: [],
   };
 }
@@ -162,6 +166,7 @@ function load(): DbState {
       if (migrated.version === 3) migrated = migrateV3ToV4(migrated);
       if (migrated.version === 4) migrated = migrateV4ToV5(migrated);
       if (migrated.version === 5) migrated = migrateV5ToV6(migrated);
+      if (migrated.version === 6) migrated = migrateV6ToV7(migrated);
       holder.state = migrated as DbState;
       persist(holder.state);
       completeExisting(holder.state);

@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireUser } from "@/lib/auth/session";
-import { PLANS } from "@/lib/marketing/plans";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
 import { getAccount } from "@/modules/billing/billing.service";
@@ -85,7 +84,7 @@ export default async function AccountPage() {
         <h2 id="offres" className="mb-3 text-lg font-semibold">
           Changer d&apos;offre
         </h2>
-        <PlanPicker plans={PLANS} currentId={a.plan.id} blockers={a.blockers} trialAvailable={!sub?.trialUsed} />
+        <PlanPicker plans={a.plans} currentId={a.plan.id} blockers={a.blockers} trialAvailable={!sub?.trialUsed} />
       </section>
 
       <Card className="mt-8">

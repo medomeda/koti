@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { PLAN_TONE } from "@/lib/constants/admin-labels";
-import { PLANS } from "@/lib/marketing/plans";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
 import { listPlatformSubscriptions } from "@/modules/admin/admin.service";
@@ -25,7 +24,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 export default async function AdminSubscriptionsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
   const user = await requireUser("/admin/abonnements");
-  const plan = PLANS.some((p) => p.id === one(sp.plan)) ? (one(sp.plan) as PlanId) : undefined;
+  const plan = ["FREE", "PRO", "ASSOCIATION"].includes(one(sp.plan) ?? "") ? (one(sp.plan) as PlanId) : undefined;
   const status = one(sp.status) === "TRIAL" ? "TRIAL" : one(sp.status) === "ACTIVE" ? "ACTIVE" : undefined;
   const data = guard(() => listPlatformSubscriptions(ctxFor(user.id), { plan, status, page: Number(one(sp.page)) || 1 }));
   const hrefFor = (page: number) => {
@@ -59,8 +58,8 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
             Offre
             <NativeSelect name="plan" defaultValue={plan ?? ""}>
               <option value="">Toutes</option>
-              {PLANS.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+              {data.breakdown.map((p) => (
+                <option key={p.planId} value={p.planId}>{p.name}</option>
               ))}
             </NativeSelect>
           </label>

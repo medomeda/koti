@@ -4,12 +4,16 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { Button } from "@/components/ui/button";
 import { formatFCFA } from "@/lib/utils/money";
-import { PLANS } from "@/lib/marketing/plans";
+import { getPublicPlans } from "@/modules/billing/billing.service";
 import { cn } from "@/lib/utils/cn";
 
 export const metadata: Metadata = { title: "Tarifs", description: "Une offre gratuite pour démarrer, des offres payantes pour les organisateurs et les associations." };
 
+// Les offres sont réglables depuis l'administration : rendu à la demande.
+export const dynamic = "force-dynamic";
+
 export default function PricingPage() {
+  const plans = getPublicPlans();
   return (
     <>
       <SiteHeader />
@@ -19,7 +23,7 @@ export default function PricingPage() {
         <p className="mt-3 max-w-2xl rounded-lg bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground">Version de démonstration : ces offres et ces prix sont indicatifs. Aucun paiement n&apos;est demandé.</p>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
-          {PLANS.map((p) => (
+          {plans.map((p) => (
             <section key={p.id} aria-labelledby={`plan-${p.id}`} className={cn("flex flex-col rounded-2xl border p-6 sm:p-7", p.highlighted ? "border-transparent bg-sidebar text-white shadow-xl lg:-my-3 lg:py-9" : "bg-card")}>
               <h2 id={`plan-${p.id}`} className="font-display text-2xl font-bold">
                 {p.name}
@@ -44,7 +48,7 @@ export default function PricingPage() {
                 </div>
               </dl>
               <ul className="mt-5 flex-1 space-y-2.5 text-sm">
-                {p.features.map((f) => (
+                {p.features.filter((f) => !f.requires || p.limits[f.requires]).map((f) => (
                   <li key={f.label} className="flex gap-2.5">
                     <Check className={cn("mt-0.5 size-4 shrink-0", p.highlighted ? "text-[#f4c04e]" : "text-primary")} aria-hidden />
                     <span>

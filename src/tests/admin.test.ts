@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- formes JSON héritées (v5) manipulées volontairement sans typage */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { platformCan } from "@/lib/permissions/platform";
-import { addClientNote, changeClientPlan, getClient, getPlatformOverview, grantTrial, listAdminTontines, listClients, listContactRequests, listPlatformSubscriptions, reactivateUser, suspendUser } from "@/modules/admin/admin.service";
-import { authenticate } from "@/modules/users/user.service";
+import { addClientNote, changeClientPlan, getClient, listPlansAdmin, previewPlanImpact, resetPlan, updatePlan, getPlatformOverview, grantTrial, listAdminTontines, listClients, listContactRequests, listPlatformSubscriptions, reactivateUser, suspendUser } from "@/modules/admin/admin.service";
+import { authenticate, signUp } from "@/modules/users/user.service";
+import { createTontine } from "@/modules/tontines/tontine.service";
+import { getPublicPlans, runBilling } from "@/modules/billing/billing.service";
+import { addDays, todayISO } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
-import { migrateV5ToV6 } from "@/server/db/migrations";
+import { migrateV5ToV6, migrateV6ToV7 } from "@/server/db/migrations";
 import { ensureDemoStaff } from "@/server/db/seed";
 import { read, resetDatabase, tx, type DbState } from "@/server/db/store";
 
@@ -214,6 +217,110 @@ describe("Migration v5 → v6", () => {
     expect(out.version).toBe(6);
     expect(out.adminNotes).toEqual([]);
     expect(out.users).toEqual(snapshot.users);
+    expect(out.subscriptions).toEqual(snapshot.subscriptions);
+  });
+});
+
+describe("Offres — réglage depuis l'administration", () => {
+  beforeAll(() => resetDatabase());
+  const T = todayISO();
+  const proInput = (over: Record<string, unknown> = {}) => {
+    const pro = listPlansAdmin(admin()).plans.find((p) => p.plan.id === "PRO")!.plan;
+    return { planId: "PRO" as const, name: pro.name, tagline: pro.tagline, monthlyPrice: pro.monthlyPrice, limits: { ...pro.limits }, ...over };
+  };
+  const freeInput = (limits: Record<string, unknown>) => {
+    const free = listPlansAdmin(admin()).plans.find((p) => p.plan.id === "FREE")!.plan;
+    return { planId: "FREE" as const, name: free.name, tagline: free.tagline, monthlyPrice: 0, limits: { ...free.limits, ...limits } };
+  };
+
+  it("liste les trois offres avec leurs valeurs d'origine, leurs clients et leur revenu récurrent", () => {
+    const { plans, history } = listPlansAdmin(support());
+    expect(plans.map((p) => p.plan.id)).toEqual(["FREE", "PRO", "ASSOCIATION"]);
+    expect(plans.every((p) => !p.customized)).toBe(true);
+    expect(plans.reduce((n, p) => n + p.clients, 0)).toBe(read((s) => s.users.filter((u) => u.platformRole === "USER").length));
+    expect(plans.reduce((n, p) => n + p.mrr, 0)).toBe(getPlatformOverview(admin()).kpis.mrr);
+    expect(history).toEqual([]);
+  });
+
+  it("seul un super-admin modifie les offres", () => {
+    expect(() => updatePlan(support(), { ...proInput({ monthlyPrice: 6000 }), reason: "Test" })).toThrow(/droits/);
+    expect(() => resetPlan(support(), { planId: "PRO", reason: "Test" })).toThrow(/droits/);
+    expect(() => updatePlan(ctxFor(id("ahmed@koti.demo")), { ...proInput({ monthlyPrice: 6000 }), reason: "Test" })).toThrow(/introuvable/i);
+  });
+
+  it("refuse les réglages incohérents", () => {
+    const bad = (input: any) => {
+      try {
+        updatePlan(admin(), { ...input, reason: "Test" });
+      } catch (e: any) {
+        return e.fieldErrors as Record<string, string>;
+      }
+      return null;
+    };
+    expect(bad(freeInput({}) && { ...freeInput({}), monthlyPrice: 1000 })).toHaveProperty("monthlyPrice");
+    expect(bad(proInput({ monthlyPrice: 0 }))).toHaveProperty("monthlyPrice");
+    expect(bad(freeInput({ membersPerTontine: 20, ticketsPerTontine: 10 }))).toHaveProperty("ticketsPerTontine");
+    expect(bad(proInput({ name: "A" }))).toHaveProperty("name");
+    expect(bad(freeInput({ tontines: 0 }))).toHaveProperty("tontines");
+    expect(() => updatePlan(admin(), { ...proInput(), reason: "Rien" })).toThrow(/Aucun changement/);
+  });
+
+  it("l'aperçu d'impact compte les clients qui dépasseraient les nouvelles limites, sans rien enregistrer", () => {
+    const before = JSON.stringify(read((s) => s.planSettings));
+    const impact = previewPlanImpact(admin(), proInput({ limits: { ...proInput().limits, tontines: 2 } }));
+    expect(impact.clients).toBeGreaterThan(0);
+    expect(impact.overLimit).toBeGreaterThanOrEqual(1); // Ahmed organise 3 tontines
+    expect(impact.examples.some((e) => /tontines? en cours/.test(e.problems.join()))).toBe(true);
+    expect(JSON.stringify(read((s) => s.planSettings))).toBe(before);
+  });
+
+  it("une modification s'applique tout de suite aux quotas, au site public et à l'historique, sans bloquer l'existant", () => {
+    const free = (userEmail: string) => signUp({ fullName: "Nouveau Client", email: userEmail, phone: `+22507${Math.floor(10000000 + Math.random() * 89999999)}`, password: "Motdepasse1" });
+    const base = { name: "T", description: "", contributionAmount: 10000, frequency: "MONTHLY" as const, startDate: addDays(T, 10), expectedMemberCount: 4, rotationMode: "MANUAL" as const };
+    const a = free("quota-a@exemple.ci");
+    createTontine(ctxFor(a), base);
+    expect(() => createTontine(ctxFor(a), base)).toThrow(/permet 1 tontine/);
+
+    updatePlan(admin(), { ...freeInput({ tontines: 2 }), reason: "Ouvrir la 2e tontine aux comptes gratuits" });
+    expect(getPublicPlans().find((p) => p.id === "FREE")!.limits.tontines).toBe(2);
+    expect(() => createTontine(ctxFor(a), base)).not.toThrow();
+    expect(() => createTontine(ctxFor(a), base)).toThrow(/permet 2 tontines/);
+
+    // Retour en arrière : la limite redescend, les tontines existantes restent (3 > 1 ne bloque rien d'existant).
+    resetPlan(admin(), { planId: "FREE", reason: "Test terminé" });
+    expect(getPublicPlans().find((p) => p.id === "FREE")!.limits.tontines).toBe(1);
+    expect(read((s) => s.tontines.filter((t) => t.creatorId === a).length)).toBe(2);
+
+    const log = read((s) => s.auditLogs.filter((x) => x.action === "admin.plan.update"));
+    expect(log).toHaveLength(2);
+    expect(log[0]).toMatchObject({ entityId: "FREE", reason: "Ouvrir la 2e tontine aux comptes gratuits", actorId: admin().userId });
+    expect(listPlansAdmin(admin()).history).toHaveLength(2);
+    expect(() => resetPlan(admin(), { planId: "FREE", reason: "Encore" })).toThrow(/valeurs d'origine/);
+  });
+
+  it("un nouveau prix ne touche pas les factures émises et s'applique aux suivantes", () => {
+    const proClient = read((s) => s.subscriptions.find((x) => x.planId === "PRO" && x.status === "ACTIVE" && s.invoices.some((i) => i.userId === x.userId))!);
+    const oldInvoices = read((s) => structuredClone(s.invoices.filter((i) => i.userId === proClient.userId)));
+    updatePlan(admin(), { ...proInput({ monthlyPrice: 7500 }), reason: "Ajustement tarifaire" });
+    expect(read((s) => s.invoices.filter((i) => i.userId === proClient.userId).slice(0, oldInvoices.length))).toEqual(oldInvoices);
+    tx((s) => void runBilling(s, new Date(Date.now() + 70 * 86_400_000)));
+    const latest = read((s) => s.invoices.filter((i) => i.userId === proClient.userId).sort((a, b) => b.periodStart.localeCompare(a.periodStart))[0]!);
+    expect(latest.amount).toBe(7500);
+    expect(oldInvoices.every((i) => i.amount === 5000)).toBe(true);
+    expect(getPublicPlans().find((p) => p.id === "PRO")!.monthlyPrice).toBe(7500);
+  });
+});
+
+describe("Migration v6 → v7", () => {
+  it("ajoute les réglages d'offres sans toucher aux données existantes", () => {
+    const v6 = read((s) => structuredClone(s)) as any;
+    delete v6.planSettings;
+    v6.version = 6;
+    const snapshot = structuredClone(v6);
+    const out = migrateV6ToV7(v6) as any;
+    expect(v6).toEqual(snapshot);
+    expect(out.version).toBe(7);
+    expect(out.planSettings).toEqual([]);
     expect(out.subscriptions).toEqual(snapshot.subscriptions);
   });
 });

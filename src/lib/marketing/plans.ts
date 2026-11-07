@@ -13,7 +13,8 @@ export interface Plan {
   monthlyPrice: number;
   tagline: string;
   limits: { tontines: number; membersPerTontine: number; ticketsPerTontine: number; multipleTickets: boolean };
-  features: Array<{ label: string; soon?: boolean }>;
+  /** `requires` : la ligne ne s'affiche que si la limite correspondante est activée dans l'offre. */
+  features: Array<{ label: string; soon?: boolean; requires?: "multipleTickets" }>;
   highlighted?: boolean;
   cta: string;
 }
@@ -25,7 +26,7 @@ export const PLANS: Plan[] = [
     monthlyPrice: 0,
     tagline: "Pour lancer une première tontine entre proches.",
     limits: { tontines: 1, membersPerTontine: 10, ticketsPerTontine: 10, multipleTickets: false },
-    features: [{ label: "Suivi des cotisations et validation des paiements" }, { label: "Ordre des tours de main" }, { label: "Invitations par lien" }, { label: "Application installable sur téléphone" }],
+    features: [{ label: "Suivi des cotisations et validation des paiements" }, { label: "Ordre des tours de main" }, { label: "Invitations par lien" }, { label: "Application installable sur téléphone" }, { label: "Tickets multiples : plusieurs parts par membre", requires: "multipleTickets" }],
     cta: "Commencer gratuitement",
   },
   {
@@ -36,7 +37,7 @@ export const PLANS: Plan[] = [
     limits: { tontines: 5, membersPerTontine: 50, ticketsPerTontine: 100, multipleTickets: true },
     features: [
       { label: "Tout ce que contient Découverte" },
-      { label: "Tickets multiples : plusieurs parts par membre" },
+      { label: "Tickets multiples : plusieurs parts par membre", requires: "multipleTickets" },
       { label: "Rappels automatiques par e-mail et SMS", soon: true },
       { label: "Justificatifs de paiement", soon: true },
     ],

@@ -1,15 +1,15 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
 import { applyPlanChange, applyTrialGrant } from "@/modules/billing/billing.service";
-import { activeMemberCount, planById, planOf, subscriptionOf, usageOf, COUNTED_STATUSES } from "@/modules/billing/quota";
-import { effectiveObligationStatus } from "@/modules/contributions/contribution.service";
 import { PLANS } from "@/lib/marketing/plans";
+import { activeMemberCount, allPlans, overages, planById, planOf, subscriptionOf, usageOf, COUNTED_STATUSES } from "@/modules/billing/quota";
+import { effectiveObligationStatus } from "@/modules/contributions/contribution.service";
 import { addDays, todayISO } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
 import { activeTickets } from "@/modules/tickets/ticket.rules";
 import { isoNow, requirePlatform, type Ctx } from "@/server/context";
 import { read, tx, type DbState } from "@/server/db/store";
-import { conflict, invalidState, notFound } from "@/server/errors";
+import { AppError, conflict, invalidState, notFound } from "@/server/errors";
 import { newId } from "@/server/ids";
 import type { ContactRequest, PlanId, Tontine, User } from "@/types/domain";
 
@@ -68,8 +68,8 @@ export function getPlatformOverview(ctx: Ctx) {
 
     const live = s.tontines.filter((t) => COUNTED_STATUSES.includes(t.status));
     const organizerIds = new Set(live.map((t) => t.creatorId));
-    const paidSubs = s.subscriptions.filter((x) => planById(x.planId).monthlyPrice > 0 && clients.some((u) => u.id === x.userId));
-    const mrr = paidSubs.filter((x) => x.status === "ACTIVE").reduce((n, x) => n + planById(x.planId).monthlyPrice, 0);
+    const paidSubs = s.subscriptions.filter((x) => planById(s, x.planId).monthlyPrice > 0 && clients.some((u) => u.id === x.userId));
+    const mrr = paidSubs.filter((x) => x.status === "ACTIVE").reduce((n, x) => n + planById(s, x.planId).monthlyPrice, 0);
     const trials = paidSubs.filter((x) => x.status === "TRIAL").length;
     const thisMonth = months[months.length - 1]!;
     const lastMonth = months[months.length - 2]!;
@@ -159,7 +159,7 @@ export function listClients(ctx: Ctx, f: ClientFilters = {}) {
     const rows = clientsOf(s)
       .map((u) => {
         const sub = subscriptionOf(s, u.id);
-        const plan = planById(sub?.planId ?? "FREE");
+        const plan = planById(s, sub?.planId ?? "FREE");
         const owned = s.tontines.filter((t) => t.creatorId === u.id);
         const live = owned.filter((t) => COUNTED_STATUSES.includes(t.status));
         const profile = s.userProfiles.find((p) => p.userId === u.id);
@@ -192,7 +192,7 @@ export function listClients(ctx: Ctx, f: ClientFilters = {}) {
     const pageSize = f.pageSize ?? 15;
     const pages = Math.max(1, Math.ceil(rows.length / pageSize));
     const page = Math.min(Math.max(1, f.page ?? 1), pages);
-    return { rows: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length, page, pages };
+    return { rows: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length, page, pages, plans: allPlans(s).map((p) => ({ id: p.id, name: p.name })) };
   });
 }
 
@@ -212,7 +212,7 @@ export function getClient(ctx: Ctx, userId: string) {
     if (!user) throw notFound("Client introuvable.");
     const profile = s.userProfiles.find((p) => p.userId === userId);
     const sub = subscriptionOf(s, userId);
-    const plan = planById(sub?.planId ?? "FREE");
+    const plan = planById(s, sub?.planId ?? "FREE");
     const todayDate = todayISO(ctx.now);
     const owned = s.tontines.filter((t) => t.creatorId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const tontines = owned.map((t) => ({
@@ -236,7 +236,7 @@ export function getClient(ctx: Ctx, userId: string) {
     for (const a of s.auditLogs) {
       if (a.actorId === userId && TIMELINE_LABELS[a.action]) {
         const t = a.tontineId ? s.tontines.find((x) => x.id === a.tontineId) : null;
-        const planChange = a.action === "subscription.change" ? ` : ${planById((a.oldValues?.planId as PlanId) ?? "FREE").name} → ${planById((a.newValues?.planId as PlanId) ?? "FREE").name}` : "";
+        const planChange = a.action === "subscription.change" ? ` : ${planById(s, (a.oldValues?.planId as PlanId) ?? "FREE").name} → ${planById(s, (a.newValues?.planId as PlanId) ?? "FREE").name}` : "";
         timeline.push({ at: a.createdAt, label: `${TIMELINE_LABELS[a.action]}${t ? ` « ${t.name} »` : ""}${planChange}` });
       } else if (a.action.startsWith("admin.") && (a.entityId === userId || a.oldValues?.userId === userId)) {
         const labels: Record<string, string> = { "admin.user.suspend": "Compte suspendu", "admin.user.reactivate": "Compte réactivé", "admin.subscription.change": "Offre modifiée par l'équipe", "admin.trial.grant": "Essai offert par l'équipe", "admin.note.add": "Note interne ajoutée" };
@@ -252,6 +252,7 @@ export function getClient(ctx: Ctx, userId: string) {
       subscription: sub,
       plan,
       usage: usageOf(s, userId),
+      plans: allPlans(s),
       tontines,
       memberships,
       invoices,
@@ -355,7 +356,7 @@ export function listPlatformSubscriptions(ctx: Ctx, f: { plan?: PlanId; status?:
     requirePlatform(s, ctx, "admin.view");
     const clientIds = new Set(clientsOf(s).map((u) => u.id));
     const subs = s.subscriptions.filter((x) => clientIds.has(x.userId));
-    const breakdown = PLANS.map((p) => {
+    const breakdown = allPlans(s).map((p) => {
       const mine = subs.filter((x) => x.planId === p.id);
       return { planId: p.id, name: p.name, price: p.monthlyPrice, clients: mine.length, trials: mine.filter((x) => x.status === "TRIAL").length, mrr: mine.filter((x) => x.status === "ACTIVE").length * p.monthlyPrice };
     });
@@ -367,8 +368,8 @@ export function listPlatformSubscriptions(ctx: Ctx, f: { plan?: PlanId; status?:
         clientName: nameOf(s, x.userId),
         email: s.users.find((u) => u.id === x.userId)?.email ?? "",
         planId: x.planId,
-        planName: planById(x.planId).name,
-        price: planById(x.planId).monthlyPrice,
+        planName: planById(s, x.planId).name,
+        price: planById(s, x.planId).monthlyPrice,
         status: x.status,
         startedAt: x.startedAt,
         trialEndsAt: x.trialEndsAt,
@@ -411,5 +412,133 @@ export function platformRoleOf(userId: string) {
   return read((s) => {
     const u = s.users.find((x) => x.id === userId);
     return u && u.status === "ACTIVE" && (u.platformRole === "SUPPORT" || u.platformRole === "SUPER_ADMIN") ? u.platformRole : null;
+  });
+}
+
+/* ------------------------------------------------------------------ Offres (réglage depuis l'administration) */
+
+export interface PlanInput {
+  planId: PlanId;
+  name: string;
+  tagline: string;
+  monthlyPrice: number;
+  limits: { tontines: number; membersPerTontine: number; ticketsPerTontine: number; multipleTickets: boolean };
+}
+
+function validatePlanInput(s: Readonly<DbState>, i: PlanInput) {
+  const errors: Record<string, string> = {};
+  if (!PLANS.some((p) => p.id === i.planId)) throw notFound("Offre introuvable.");
+  if (i.name.trim().length < 2 || i.name.length > 40) errors.name = "Entre 2 et 40 caractères.";
+  if (i.tagline.length > 120) errors.tagline = "120 caractères maximum.";
+  if (!Number.isInteger(i.monthlyPrice) || i.monthlyPrice < 0 || i.monthlyPrice > 1_000_000) errors.monthlyPrice = "Montant entier entre 0 et 1 000 000 FCFA.";
+  else if (i.planId === "FREE" && i.monthlyPrice !== 0) errors.monthlyPrice = "L'offre gratuite reste à 0 FCFA.";
+  else if (i.planId !== "FREE" && i.monthlyPrice === 0) errors.monthlyPrice = "Une offre payante doit avoir un prix supérieur à 0.";
+  const l = i.limits;
+  if (!Number.isInteger(l.tontines) || l.tontines < 1 || l.tontines > 500) errors.tontines = "Entre 1 et 500.";
+  if (!Number.isInteger(l.membersPerTontine) || l.membersPerTontine < 2 || l.membersPerTontine > 1000) errors.membersPerTontine = "Entre 2 et 1 000.";
+  if (!Number.isInteger(l.ticketsPerTontine) || l.ticketsPerTontine < 1 || l.ticketsPerTontine > 5000) errors.ticketsPerTontine = "Entre 1 et 5 000.";
+  else if (!errors.membersPerTontine && l.ticketsPerTontine < l.membersPerTontine) errors.ticketsPerTontine = "Au moins autant de tickets que de membres (chaque membre a un ticket).";
+  if (Object.keys(errors).length > 0) throw new AppError("VALIDATION", "Certains réglages sont invalides.", errors);
+  void s;
+}
+
+/** Offres telles que vues par l'équipe : valeurs effectives, valeurs d'origine, clients concernés, historique des modifications. */
+export function listPlansAdmin(ctx: Ctx) {
+  return read((s) => {
+    requirePlatform(s, ctx, "admin.view");
+    const clientIds = new Set(clientsOf(s).map((u) => u.id));
+    const effective = allPlans(s);
+    const history = s.auditLogs
+      .filter((a) => a.action === "admin.plan.update")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 30)
+      .map((a) => ({ id: a.id, at: a.createdAt, by: nameOf(s, a.actorId), planId: a.entityId as PlanId, reason: a.reason ?? "", before: a.oldValues as Record<string, unknown> | null, after: a.newValues as Record<string, unknown> | null }));
+    return {
+      plans: effective.map((p) => {
+        const subs = s.subscriptions.filter((x) => x.planId === p.id && clientIds.has(x.userId));
+        const def = PLANS.find((d) => d.id === p.id)!;
+        const setting = s.planSettings.find((x) => x.planId === p.id);
+        return {
+          plan: p,
+          defaults: { name: def.name, tagline: def.tagline, monthlyPrice: def.monthlyPrice, limits: def.limits },
+          customized: !!setting,
+          updatedAt: setting?.updatedAt ?? null,
+          updatedBy: setting ? nameOf(s, setting.updatedBy) : null,
+          clients: subs.length,
+          trials: subs.filter((x) => x.status === "TRIAL").length,
+          mrr: subs.filter((x) => x.status === "ACTIVE").length * p.monthlyPrice,
+        };
+      }),
+      history,
+    };
+  });
+}
+
+/**
+ * Impact d'un réglage AVANT de l'enregistrer : combien de clients de cette offre dépassent les nouvelles limites
+ * (leurs tontines existantes ne sont pas bloquées, mais ils ne pourront plus en créer ni en agrandir) et effet sur le revenu récurrent.
+ */
+export function previewPlanImpact(ctx: Ctx, input: PlanInput) {
+  return read((s) => {
+    requirePlatform(s, ctx, "admin.view");
+    validatePlanInput(s, input);
+    const current = planById(s, input.planId);
+    const proposed = { ...current, name: input.name.trim(), tagline: input.tagline.trim(), monthlyPrice: input.monthlyPrice, limits: { ...input.limits } };
+    const clientIds = new Set(clientsOf(s).map((u) => u.id));
+    const subs = s.subscriptions.filter((x) => x.planId === input.planId && clientIds.has(x.userId));
+    const over = subs
+      .map((x) => ({ userId: x.userId, name: nameOf(s, x.userId), problems: overages(usageOf(s, x.userId), proposed) }))
+      .filter((x) => x.problems.length > 0);
+    const active = subs.filter((x) => x.status === "ACTIVE").length;
+    return {
+      clients: subs.length,
+      overLimit: over.length,
+      examples: over.slice(0, 5).map((o) => ({ userId: o.userId, name: o.name, problems: o.problems })),
+      mrrBefore: active * current.monthlyPrice,
+      mrrAfter: active * proposed.monthlyPrice,
+      changed: JSON.stringify({ n: current.name, t: current.tagline, p: current.monthlyPrice, l: current.limits }) !== JSON.stringify({ n: proposed.name, t: proposed.tagline, p: proposed.monthlyPrice, l: proposed.limits }),
+    };
+  });
+}
+
+/**
+ * Modification d'une offre (SUPER_ADMIN, motif obligatoire, journalisée). Effets :
+ * - quotas : s'appliquent aux nouvelles créations ; aucune tontine existante n'est bloquée ni supprimée ;
+ * - prix : s'applique aux factures émises à partir de maintenant ; les factures passées ne changent jamais.
+ */
+export function updatePlan(ctx: Ctx, input: PlanInput & { reason: string }) {
+  tx((s) => {
+    requirePlatform(s, ctx, "plan.edit");
+    validatePlanInput(s, input);
+    const before = planById(s, input.planId);
+    const next: PlanInput = { planId: input.planId, name: input.name.trim(), tagline: input.tagline.trim(), monthlyPrice: input.monthlyPrice, limits: { ...input.limits } };
+    const same = before.name === next.name && before.tagline === next.tagline && before.monthlyPrice === next.monthlyPrice && JSON.stringify(before.limits) === JSON.stringify(next.limits);
+    if (same) throw conflict("Aucun changement à enregistrer.");
+    const existing = s.planSettings.find((x) => x.planId === input.planId);
+    const setting = { planId: input.planId, name: next.name, tagline: next.tagline, monthlyPrice: next.monthlyPrice, limits: next.limits, updatedAt: isoNow(ctx), updatedBy: ctx.userId };
+    if (existing) Object.assign(existing, setting);
+    else s.planSettings.push(setting);
+    audit(s, ctx, {
+      tontineId: null,
+      action: "admin.plan.update",
+      entityType: "plan",
+      entityId: input.planId,
+      oldValues: { name: before.name, tagline: before.tagline, monthlyPrice: before.monthlyPrice, ...before.limits },
+      newValues: { name: next.name, tagline: next.tagline, monthlyPrice: next.monthlyPrice, ...next.limits },
+      reason: input.reason,
+    });
+  });
+}
+
+/** Retour aux valeurs d'origine d'une offre (SUPER_ADMIN). */
+export function resetPlan(ctx: Ctx, input: { planId: PlanId; reason: string }) {
+  tx((s) => {
+    requirePlatform(s, ctx, "plan.edit");
+    const i = s.planSettings.findIndex((x) => x.planId === input.planId);
+    if (i < 0) throw conflict("Cette offre a déjà ses valeurs d'origine.");
+    const before = planById(s, input.planId);
+    s.planSettings.splice(i, 1);
+    const def = planById(s, input.planId);
+    audit(s, ctx, { tontineId: null, action: "admin.plan.update", entityType: "plan", entityId: input.planId, oldValues: { name: before.name, tagline: before.tagline, monthlyPrice: before.monthlyPrice, ...before.limits }, newValues: { name: def.name, tagline: def.tagline, monthlyPrice: def.monthlyPrice, ...def.limits }, reason: `Retour aux valeurs d'origine : ${input.reason}` });
   });
 }

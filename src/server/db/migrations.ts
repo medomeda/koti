@@ -140,3 +140,9 @@ export function migrateV5ToV6(legacy: unknown): DbState {
   const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
   return { ...(old as unknown as DbState), version: 6, adminNotes: (old.adminNotes as DbState["adminNotes"] | undefined) ?? [] };
 }
+
+/** Migration v6 → v7 : réglages d'offres modifiables (vide : les valeurs d'origine continuent de s'appliquer). */
+export function migrateV6ToV7(legacy: unknown): DbState {
+  const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
+  return { ...(old as unknown as DbState), version: 7, planSettings: (old.planSettings as DbState["planSettings"] | undefined) ?? [] };
+}
