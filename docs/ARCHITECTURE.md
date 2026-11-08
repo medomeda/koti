@@ -98,6 +98,12 @@ Le PRD demande de signaler les ambiguïtés : voici les choix faits, faciles à 
 
 Les écrans, les Server Actions, les schémas Zod, les permissions et les tests de recette restent inchangés.
 
+**Méthode de bascule (décidée le 08/11/2026).** Les services du magasin simulé se référencent tous entre eux (comptes,
+tontines, tickets…) : les basculer un par un obligerait à maintenir deux sources de vérité. La pile PostgreSQL est donc
+construite **en parallèle** — fichiers `*.pg.ts` à côté des services actuels, asynchrones, testés sur la base `koti_test` —
+pendant que l'application tourne sur le simulé. Quand tous les modules existent, l'interface est basculée en une fois
+(actions, pages, session), les fichiers `*.pg.ts` prennent la place des anciens et le magasin simulé est supprimé.
+
 ## 6. Relecture sécurité
 
 Une relecture indépendante (agent dédié) a relevé 10 points, tous corrigés et couverts par
