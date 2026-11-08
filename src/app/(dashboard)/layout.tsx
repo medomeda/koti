@@ -3,6 +3,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { isDemoMode } from "@/lib/demo";
 import { requireUser } from "@/lib/auth/session";
+import { AnnouncementBanner } from "@/components/layout/announcement-banner";
+import { activeAnnouncements } from "@/modules/admin/support.service";
 import { unreadCount } from "@/modules/notifications/notification.service";
 import { listMyObligations } from "@/modules/payments/payment.service";
 import { syncUserTontines } from "@/modules/tontines/tontine.service";
@@ -18,7 +20,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   syncUserTontines(ctx);
   const { toPay } = listMyObligations(ctx);
   return (
-    <AppShell user={{ fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl }} unread={unreadCount(ctx)} pendingPayments={toPay.filter((o) => o.canDeclare).length} banner={isDemoMode() ? <DemoBanner /> : undefined}>
+    <AppShell user={{ fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl }} unread={unreadCount(ctx)} pendingPayments={toPay.filter((o) => o.canDeclare).length} banner={
+        <>
+          {isDemoMode() && <DemoBanner />}
+          <AnnouncementBanner items={activeAnnouncements()} />
+        </>
+      }
+    >
       {children}
     </AppShell>
   );

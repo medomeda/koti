@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addClientNote, changeClientPlan, grantTrial, previewPlanImpact, reactivateUser, resetPlan, suspendUser, updatePlan } from "@/modules/admin/admin.service";
+import { createAnnouncement, handleContactRequest, reopenContactRequest, setAnnouncementActive } from "@/modules/admin/support.service";
 import { idSchema } from "@/lib/validations";
 import { authed } from "./_shared";
 
@@ -85,5 +86,47 @@ export async function resetPlanAction(raw: unknown) {
     revalidatePath("/admin", "layout");
     revalidatePath("/tarifs");
     revalidatePath("/account");
+  });
+}
+
+/* ------------------------------------------------------------------ Étape 4 : messages, annonces */
+
+export async function handleContactRequestAction(raw: unknown) {
+  return authed(z.object({ id: idSchema, reply: z.string().trim().max(1000, "1000 caractères maximum.") }), raw, (input, ctx) => {
+    handleContactRequest(ctx, input);
+    revalidatePath("/admin", "layout");
+  });
+}
+
+export async function reopenContactRequestAction(raw: unknown) {
+  return authed(z.object({ id: idSchema, reason }), raw, (input, ctx) => {
+    reopenContactRequest(ctx, input);
+    revalidatePath("/admin", "layout");
+  });
+}
+
+export async function createAnnouncementAction(raw: unknown) {
+  return authed(
+    z.object({
+      title: z.string().trim().min(3, "Titre trop court.").max(80, "80 caractères maximum."),
+      message: z.string().trim().min(3, "Message trop court.").max(300, "300 caractères maximum."),
+      tone: z.enum(["info", "warning", "success"]),
+      // Date de fin au format AAAA-MM-JJ (fin de journée UTC), vide = jusqu'au retrait.
+      endDate: z.string().trim().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide."),
+    }),
+    raw,
+    (input, ctx) => {
+      createAnnouncement(ctx, { title: input.title, message: input.message, tone: input.tone, endsAt: input.endDate ? `${input.endDate}T23:59:59.000Z` : null });
+      revalidatePath("/admin", "layout");
+      revalidatePath("/", "layout");
+    },
+  );
+}
+
+export async function setAnnouncementActiveAction(raw: unknown) {
+  return authed(z.object({ id: idSchema, active: z.boolean() }), raw, (input, ctx) => {
+    setAnnouncementActive(ctx, input);
+    revalidatePath("/admin", "layout");
+    revalidatePath("/", "layout");
   });
 }

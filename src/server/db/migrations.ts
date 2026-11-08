@@ -146,3 +146,9 @@ export function migrateV6ToV7(legacy: unknown): DbState {
   const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
   return { ...(old as unknown as DbState), version: 7, planSettings: (old.planSettings as DbState["planSettings"] | undefined) ?? [] };
 }
+
+/** Migration v7 → v8 : annonces de la plateforme (vide au départ). Les messages de contact gagnent des champs de traitement facultatifs. */
+export function migrateV7ToV8(legacy: unknown): DbState {
+  const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
+  return { ...(old as unknown as DbState), version: 8, announcements: (old.announcements as DbState["announcements"] | undefined) ?? [] };
+}

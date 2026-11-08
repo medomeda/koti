@@ -14,7 +14,7 @@ import type { Plan } from "@/lib/marketing/plans";
 import type { PlanId } from "@/types/domain";
 
 /** Boîte de dialogue de formulaire : appelle l'action, affiche l'erreur du serveur, se ferme au succès. */
-function FormDialog({ open, onOpenChange, title, description, submitLabel, onSubmit, children }: { open: boolean; onOpenChange: (o: boolean) => void; title: string; description?: string; submitLabel: string; onSubmit: () => Promise<ActionResult<unknown>>; children: ReactNode }) {
+export function FormDialog({ open, onOpenChange, title, description, submitLabel, onSubmit, children }: { open: boolean; onOpenChange: (o: boolean) => void; title: string; description?: string; submitLabel: string; onSubmit: () => Promise<ActionResult<unknown>>; children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (

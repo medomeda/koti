@@ -294,6 +294,25 @@ export interface ContactRequest {
   message: string;
   status: ContactRequestStatus;
   createdAt: ISODateTime;
+  /** Traitement par l'équipe KOTI : qui, quand, et la réponse apportée (la réponse réelle partira par e-mail en phase 2). */
+  handledBy?: string;
+  handledAt?: ISODateTime;
+  reply?: string;
+}
+
+export type AnnouncementTone = "info" | "warning" | "success";
+
+/** Annonce de l'équipe KOTI affichée en bandeau à tous les clients connectés tant qu'elle est active et non expirée. */
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  tone: AnnouncementTone;
+  active: boolean;
+  /** Fin d'affichage (null = jusqu'au retrait manuel). */
+  endsAt: ISODateTime | null;
+  createdBy: string;
+  createdAt: ISODateTime;
 }
 
 export interface AuditLog {

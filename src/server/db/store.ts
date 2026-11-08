@@ -1,9 +1,10 @@
 import "server-only";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { migrateV2ToV3, migrateV3ToV4, migrateV4ToV5, migrateV5ToV6, migrateV6ToV7 } from "./migrations";
+import { migrateV2ToV3, migrateV3ToV4, migrateV4ToV5, migrateV5ToV6, migrateV6ToV7, migrateV7ToV8 } from "./migrations";
 import type {
   AdminNote,
+  Announcement,
   AuditLog,
   ContactRequest,
   ContributionObligation,
@@ -75,11 +76,12 @@ export interface DbState {
   adminNotes: AdminNote[];
   /** Réglages d'offres modifiés depuis l'administration (vide = valeurs d'origine). */
   planSettings: PlanSetting[];
+  announcements: Announcement[];
   /** Verrous des tâches planifiées (protection contre les exécutions multiples). */
   jobRuns: Array<{ key: string; ranAt: string }>;
 }
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export function emptyState(): DbState {
   return {
@@ -104,6 +106,7 @@ export function emptyState(): DbState {
     invoices: [],
     adminNotes: [],
     planSettings: [],
+    announcements: [],
     jobRuns: [],
   };
 }
@@ -167,6 +170,7 @@ function load(): DbState {
       if (migrated.version === 4) migrated = migrateV4ToV5(migrated);
       if (migrated.version === 5) migrated = migrateV5ToV6(migrated);
       if (migrated.version === 6) migrated = migrateV6ToV7(migrated);
+      if (migrated.version === 7) migrated = migrateV7ToV8(migrated);
       holder.state = migrated as DbState;
       persist(holder.state);
       completeExisting(holder.state);

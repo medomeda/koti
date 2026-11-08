@@ -7,7 +7,8 @@ import { createTontine } from "@/modules/tontines/tontine.service";
 import { getPublicPlans, runBilling } from "@/modules/billing/billing.service";
 import { addDays, todayISO } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
-import { migrateV5ToV6, migrateV6ToV7 } from "@/server/db/migrations";
+import { activeAnnouncements, createAnnouncement, handleContactRequest, listPlatformAudit, reopenContactRequest, setAnnouncementActive } from "@/modules/admin/support.service";
+import { migrateV5ToV6, migrateV6ToV7, migrateV7ToV8 } from "@/server/db/migrations";
 import { ensureDemoStaff } from "@/server/db/seed";
 import { read, resetDatabase, tx, type DbState } from "@/server/db/store";
 
@@ -322,5 +323,78 @@ describe("Migration v6 → v7", () => {
     expect(out.version).toBe(7);
     expect(out.planSettings).toEqual([]);
     expect(out.subscriptions).toEqual(snapshot.subscriptions);
+  });
+});
+
+describe("Étape 4 — messages, annonces, journal d'audit", () => {
+  const fresh = () => read((s) => s.contactRequests.find((c) => c.status === "NEW")!.id);
+
+  it("le support traite un message ; il est consigné, puis peut être rouvert", () => {
+    const msgId = fresh();
+    handleContactRequest(support(), { id: msgId, reply: "Rappelé, démonstration jeudi." });
+    const c = read((s) => s.contactRequests.find((x) => x.id === msgId)!);
+    expect(c.status).toBe("HANDLED");
+    expect(c.reply).toBe("Rappelé, démonstration jeudi.");
+    expect(c.handledBy).toBe(id("support@koti.demo"));
+    expect(() => handleContactRequest(support(), { id: msgId, reply: "" })).toThrow(/déjà traité/i);
+    reopenContactRequest(admin(), { id: msgId, reason: "Nouvelle question" });
+    const r = read((s) => s.contactRequests.find((x) => x.id === msgId)!);
+    expect(r.status).toBe("NEW");
+    expect(r.reply).toBeUndefined();
+    const actions = read((s) => s.auditLogs.filter((a) => a.entityId === msgId).map((a) => a.action));
+    expect(actions).toEqual(["admin.message.handle", "admin.message.reopen"]);
+  });
+
+  it("un client ordinaire ne peut pas traiter un message", () => {
+    expect(() => handleContactRequest(ctxFor(id("ahmed@koti.demo")), { id: fresh(), reply: "" })).toThrow(/introuvable/i);
+  });
+
+  it("annonces : seul le super-admin publie ; le support ne peut pas", () => {
+    expect(platformCan("SUPPORT", "announcement.manage")).toBe(false);
+    expect(() => createAnnouncement(support(), { title: "Test", message: "Message", tone: "info", endsAt: null })).toThrow(/droits|accès|autoris/i);
+  });
+
+  it("une annonce publiée est visible, puis disparaît quand elle est retirée ou expirée", () => {
+    createAnnouncement(admin(), { title: "Maintenance", message: "Dimanche 2 h–4 h", tone: "warning", endsAt: null });
+    expect(activeAnnouncements().map((a) => a.title)).toContain("Maintenance");
+    const ann = read((s) => s.announcements.find((a) => a.title === "Maintenance")!);
+    setAnnouncementActive(admin(), { id: ann.id, active: false });
+    expect(activeAnnouncements().map((a) => a.title)).not.toContain("Maintenance");
+    setAnnouncementActive(admin(), { id: ann.id, active: true });
+    expect(activeAnnouncements().map((a) => a.title)).toContain("Maintenance");
+    // Expiration : à une date postérieure à la fin, elle n'est plus servie.
+    const soon = new Date(Date.now() + 2 * 86400_000).toISOString();
+    tx((s) => { s.announcements.find((a) => a.id === ann.id)!.endsAt = soon; });
+    expect(activeAnnouncements(new Date(Date.now() + 3 * 86400_000)).map((a) => a.title)).not.toContain("Maintenance");
+    expect(() => setAnnouncementActive(admin(), { id: ann.id, active: true })).toThrow(/déjà publiée/i);
+  });
+
+  it("refuse une date de fin passée et plus de 3 annonces visibles", () => {
+    expect(() => createAnnouncement(admin(), { title: "Passé", message: "Message", tone: "info", endsAt: "2020-01-01T00:00:00.000Z" })).toThrow(/futur/i);
+    tx((s) => { s.announcements = []; });
+    for (const n of [1, 2, 3]) createAnnouncement(admin(), { title: `A${n}`, message: "Message", tone: "success", endsAt: null });
+    expect(() => createAnnouncement(admin(), { title: "A4", message: "Message", tone: "info", endsAt: null })).toThrow(/Trois annonces/);
+    tx((s) => { s.announcements = []; });
+  });
+
+  it("le journal de la plateforme liste les actions de l'équipe, filtrables, sans fuite hors équipe", () => {
+    const all = listPlatformAudit(admin());
+    expect(all.total).toBeGreaterThan(0);
+    expect(all.rows.every((r) => r.action.startsWith("admin."))).toBe(true);
+    const offers = listPlatformAudit(admin(), { category: "offres" });
+    expect(offers.rows.every((r) => r.action === "admin.plan.update")).toBe(true);
+    const byActor = listPlatformAudit(support(), { actorId: id("support@koti.demo") });
+    expect(byActor.rows.every((r) => r.actorName.length > 0)).toBe(true);
+    expect(() => listPlatformAudit(ctxFor(id("ahmed@koti.demo")))).toThrow(/introuvable/i);
+  });
+
+  it("migration v7 → v8 : ajoute les annonces sans rien perdre", () => {
+    const v7 = JSON.parse(JSON.stringify(read((s) => s))) as any;
+    v7.version = 7;
+    delete v7.announcements;
+    const out = migrateV7ToV8(v7);
+    expect(out.version).toBe(8);
+    expect(out.announcements).toEqual([]);
+    expect(out.users.length).toBe(v7.users.length);
   });
 });
