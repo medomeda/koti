@@ -12,9 +12,9 @@ import { requireUser } from "@/lib/auth/session";
 import { PLAN_TONE } from "@/lib/constants/admin-labels";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { listPlatformSubscriptions } from "@/modules/admin/admin.service";
 import { ctxFor } from "@/server/context";
 import type { PlanId } from "@/types/domain";
+import { listPlatformSubscriptions } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Abonnements" };
 
@@ -26,7 +26,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
   const user = await requireUser("/admin/abonnements");
   const plan = ["FREE", "PRO", "ASSOCIATION"].includes(one(sp.plan) ?? "") ? (one(sp.plan) as PlanId) : undefined;
   const status = one(sp.status) === "TRIAL" ? "TRIAL" : one(sp.status) === "ACTIVE" ? "ACTIVE" : undefined;
-  const data = guard(() => listPlatformSubscriptions(ctxFor(user.id), { plan, status, page: Number(one(sp.page)) || 1 }));
+  const data = (await guard(async () => (await listPlatformSubscriptions(ctxFor(user.id), { plan, status, page: Number(one(sp.page)) || 1 }))));
   const hrefFor = (page: number) => {
     const p = new URLSearchParams();
     if (plan) p.set("plan", plan);

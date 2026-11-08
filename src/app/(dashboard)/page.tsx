@@ -10,10 +10,8 @@ import { Alert, EmptyState, StatCard } from "@/components/ui/feedback";
 import { requireUser } from "@/lib/auth/session";
 import { todayISO } from "@/lib/utils/dates";
 import { formatFCFA, sumAmounts } from "@/lib/utils/money";
-import { listMyInvitations } from "@/modules/invitations/invitation.service";
-import { listMyObligations } from "@/modules/payments/payment.service";
-import { listMyTontines } from "@/modules/tontines/tontine.service";
 import { ctxFor } from "@/server/context";
+import { listMyInvitations, listMyObligations, listMyTontines } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Accueil" };
 
@@ -26,9 +24,9 @@ export default async function HomePage() {
   const user = await requireUser();
   const ctx = ctxFor(user.id);
   const today = todayISO();
-  const tontines = listMyTontines(ctx);
-  const { toPay, pending } = listMyObligations(ctx);
-  const invitations = listMyInvitations(ctx);
+  const tontines = (await listMyTontines(ctx));
+  const { toPay, pending } = (await listMyObligations(ctx));
+  const invitations = (await listMyInvitations(ctx));
   const late = toPay.filter((o) => o.status === "LATE");
   const toValidate = tontines.reduce((acc, t) => acc + t.pendingValidations, 0);
   const firstName = user.fullName.split(" ")[0];

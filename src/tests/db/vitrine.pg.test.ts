@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { contactSchema } from "@/lib/validations";
 import { PLANS } from "@/lib/marketing/plans";
-import { migrateV3ToV4 } from "@/server/db/migrations";
 import type { DbState } from "@/server/db/store";
 import * as pg from "@/server/pg/services";
 import { afterAll, beforeAll } from "vitest";
@@ -64,21 +63,4 @@ describe("Offres", () => {
     expect(PLANS.filter((p) => p.highlighted)).toHaveLength(1);
   });
 });
-
-describe("Migration v3 → v4", () => {
-  it("ajoute les messages de contact sans toucher aux données existantes", async () => {
-    const v3 = await snap((s) => structuredClone(s)) as unknown as Record<string, unknown>;
-    delete v3.contactRequests;
-    v3.version = 3;
-    const snapshot = structuredClone(v3);
-    const out = migrateV3ToV4(v3) as unknown as Record<string, unknown>;
-    expect(v3).toEqual(snapshot);
-    expect(out.version).toBe(4);
-    expect(out.contactRequests).toEqual([]);
-    // Hors version et contactRequests, tout est strictement identique à l'état d'origine.
-    const strip = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== "version" && k !== "contactRequests"));
-    expect(strip(out)).toEqual(strip(snapshot));
-  });
-});
-
 });

@@ -15,16 +15,16 @@ import { FREQUENCY_UNIT } from "@/lib/constants/labels";
 import { platformCan } from "@/lib/permissions/platform";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { getClient, platformRoleOf } from "@/modules/admin/admin.service";
 import { ctxFor } from "@/server/context";
+import { getClient, platformRoleOf } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Fiche client" };
 
 export default async function AdminClientPage({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
   const me = await requireUser(`/admin/clients/${userId}`);
-  const role = platformRoleOf(me.id);
-  const c = guard(() => getClient(ctxFor(me.id), userId));
+  const role = (await platformRoleOf(me.id));
+  const c = (await guard(async () => (await getClient(ctxFor(me.id), userId))));
   const sub = c.subscription;
   const suspended = c.user.status === "SUSPENDED";
   const paid = c.plan.monthlyPrice > 0;

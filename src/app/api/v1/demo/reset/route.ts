@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import "@/server/bootstrap";
 import { isDemoMode } from "@/lib/demo";
 import { hasAdminSecret } from "@/server/admin-secret";
-import { resetDatabase } from "@/server/db/store";
+import { resetDemoData } from "@/server/db/ready";
 
 /**
  * Réinitialisation du jeu de démonstration par le porteur de projet (pas par les testeurs).
@@ -11,6 +10,6 @@ import { resetDatabase } from "@/server/db/store";
  */
 export async function POST(req: Request) {
   if (!isDemoMode() || !hasAdminSecret(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  resetDatabase();
+  await resetDemoData();
   return NextResponse.json({ ok: true, resetAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } });
 }

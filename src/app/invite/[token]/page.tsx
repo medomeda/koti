@@ -11,14 +11,14 @@ import { FREQUENCY_LABEL, FREQUENCY_UNIT } from "@/lib/constants/labels";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
 import { tokenSchema } from "@/lib/validations";
-import { previewInvitation } from "@/modules/invitations/invitation.service";
+import { previewInvitation } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Invitation", referrer: "no-referrer" };
 
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const user = await getSession();
-  const preview = tokenSchema.safeParse(token).success ? previewInvitation(token) : null;
+  const preview = tokenSchema.safeParse(token).success ? (await previewInvitation(token)) : null;
   const path = `/invite/${token}`;
 
   return (

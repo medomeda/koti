@@ -1,7 +1,4 @@
 import "server-only";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { migrateV2ToV3, migrateV3ToV4, migrateV4ToV5, migrateV5ToV6, migrateV6ToV7, migrateV7ToV8, migrateV8ToV9 } from "./migrations";
 import type {
   AdminNote,
   Announcement,
@@ -26,15 +23,11 @@ import type {
 } from "@/types/domain";
 
 /**
- * Base de données SIMULÉE (phase frontend).
+ * Forme de l'état applicatif manipulé par la logique métier.
  *
- * Remplace PostgreSQL + Drizzle le temps de construire l'UI. Les services métier n'y accèdent
- * qu'au travers de `tx()` (lecture/écriture atomique) et `read()` : le jour de la bascule,
- * `tx()` devient `db.transaction()` et les tableaux deviennent des tables, sans changer
- * les règles métier ni les écrans.
- *
- * L'état vit côté serveur uniquement (jamais envoyé tel quel au navigateur) et est
- * persisté dans un fichier JSON local pour survivre aux redémarrages en développement.
+ * L'état n'est plus conservé ici : il est chargé depuis PostgreSQL pour le périmètre d'une opération, passé à la
+ * logique métier (`runOnState`), puis la différence est réécrite (voir `server/db/uow`). `read()` et `tx()` sont les
+ * seuls points d'accès des services ; hors d'une unité de travail, ils lèvent une erreur.
  */
 
 export interface Credential {
@@ -114,146 +107,32 @@ export function emptyState(): DbState {
   };
 }
 
-type Holder = { state: DbState | null; seeding: boolean; afterLoadDone?: boolean };
-const g = globalThis as typeof globalThis & { __kotiDb?: Holder };
-const holder: Holder = (g.__kotiDb ??= { state: null, seeding: false });
 
-const persistEnabled = process.env.NODE_ENV !== "test" && process.env.KOTI_DEMO_PERSIST !== "0";
-const dbPath = resolve(/* turbopackIgnore: true */ process.cwd(), process.env.KOTI_DEMO_DB_PATH ?? ".data/koti-demo.json");
+let current: DbState | null = null;
 
-let seeder: ((state: DbState) => void) | null = null;
+const outside = (): never => {
+  throw new Error("Accès aux données hors unité de travail : passez par `@/server/pg/services`.");
+};
 
-let afterLoad: ((state: DbState) => boolean) | null = null;
-
-/**
- * Enregistré par le module de seed : complète un état déjà existant (fichier relu ou migré) sans rien écraser.
- * Doit être idempotent et renvoyer true si l'état a été modifié (il est alors réécrit sur disque).
- */
-export function registerAfterLoad(fn: (state: DbState) => boolean) {
-  afterLoad = fn;
-}
-
-/** Enregistré par le module de seed (évite une dépendance circulaire). */
-export function registerSeeder(fn: (state: DbState) => void) {
-  seeder = fn;
-}
-
-function completeExisting(state: DbState) {
-  if (holder.afterLoadDone || !afterLoad) return;
-  holder.afterLoadDone = true;
-  if (afterLoad(state)) persist(state);
-}
-
-function load(): DbState {
-  if (holder.state?.version === SCHEMA_VERSION) {
-    completeExisting(holder.state);
-    return holder.state;
-  }
-  holder.state = null;
-  if (persistEnabled && existsSync(dbPath)) {
-    let parsed: { version?: number } | null = null;
-    try {
-      parsed = JSON.parse(readFileSync(dbPath, "utf8")) as { version?: number };
-    } catch {
-      // Fichier corrompu : on repart d'un jeu de démonstration propre.
-    }
-    if (parsed?.version === SCHEMA_VERSION) {
-      holder.state = parsed as DbState;
-      completeExisting(holder.state);
-      return holder.state;
-    }
-    if (parsed && typeof parsed.version === "number" && parsed.version >= 2 && parsed.version < SCHEMA_VERSION) {
-      // Migration NON destructive : sauvegarde du fichier d'origine, puis conversion version par version.
-      // Une ambiguïté interrompt le démarrage (exception) au lieu de régénérer la démo : le fichier reste intact.
-      const backup = `${dbPath}.v${parsed.version}.bak`;
-      if (!existsSync(backup)) copyFileSync(dbPath, backup);
-      let migrated: { version: number } = { ...parsed, version: parsed.version };
-      if (migrated.version === 2) migrated = migrateV2ToV3(migrated);
-      if (migrated.version === 3) migrated = migrateV3ToV4(migrated);
-      if (migrated.version === 4) migrated = migrateV4ToV5(migrated);
-      if (migrated.version === 5) migrated = migrateV5ToV6(migrated);
-      if (migrated.version === 6) migrated = migrateV6ToV7(migrated);
-      if (migrated.version === 7) migrated = migrateV7ToV8(migrated);
-      if (migrated.version === 8) migrated = migrateV8ToV9(migrated);
-      holder.state = migrated as DbState;
-      persist(holder.state);
-      completeExisting(holder.state);
-      return holder.state;
-    }
-  }
-  const fresh = emptyState();
-  holder.state = fresh;
-  holder.afterLoadDone = true;
-  if (seeder) {
-    holder.seeding = true;
-    try {
-      seeder(fresh);
-    } finally {
-      holder.seeding = false;
-    }
-    persist(fresh);
-  }
-  return fresh;
-}
-
-function persist(state: DbState) {
-  if (!persistEnabled || holder.seeding) return;
-  try {
-    mkdirSync(dirname(dbPath), { recursive: true });
-    const tmp = `${dbPath}.tmp`;
-    writeFileSync(tmp, JSON.stringify(state), { mode: 0o600 });
-    renameSync(tmp, dbPath);
-  } catch (err) {
-    console.error("[koti] persistance de la base de démonstration impossible", err);
-  }
-}
-
-/** Lecture seule. Ne jamais muter l'objet renvoyé. */
 export function read<T>(fn: (state: Readonly<DbState>) => T): T {
-  return fn(overrideState ?? load());
+  return fn(current ?? outside());
+}
+
+/** Les écritures portent sur l'état fourni ; la transaction PostgreSQL (verrous, écriture de la différence) est gérée autour. */
+export function tx<T>(fn: (state: DbState) => T): T {
+  return fn(current ?? outside());
 }
 
 /**
- * Exécute du code métier synchrone sur un état fourni (chargé depuis PostgreSQL par l'unité de travail) :
- * pendant l'appel, `read()` et `tx()` travaillent sur cet état au lieu du magasin simulé.
- * Sûr parce que le code appelé est synchrone : rien ne peut s'intercaler (pas de partage entre requêtes).
+ * Exécute du code métier synchrone sur un état fourni (chargé depuis PostgreSQL) : pendant l'appel, `read()` et `tx()`
+ * travaillent sur cet état. Sûr parce que le code appelé est synchrone : rien ne peut s'intercaler.
  */
 export function runOnState<T>(state: DbState, fn: () => T): T {
-  if (overrideState) throw new Error("runOnState ne peut pas être imbriqué.");
-  overrideState = state;
+  if (current) throw new Error("runOnState ne peut pas être imbriqué.");
+  current = state;
   try {
     return fn();
   } finally {
-    overrideState = null;
+    current = null;
   }
-}
-let overrideState: DbState | null = null;
-
-/**
- * Transaction : travaille sur une copie, ne publie l'état qu'en cas de succès.
- * Toute exception annule l'ensemble des écritures (équivalent ROLLBACK).
- * Node exécute ce code de manière synchrone : aucune autre requête ne s'intercale.
- */
-export function tx<T>(fn: (state: DbState) => T): T {
-  if (overrideState) return fn(overrideState); // l'unité de travail PostgreSQL gère transaction, verrous et écriture
-  const current = load();
-  if (holder.seeding) return fn(current);
-  const draft = structuredClone(current);
-  const result = fn(draft);
-  holder.state = draft;
-  persist(draft);
-  return result;
-}
-
-/** Réinitialise le jeu de démonstration. */
-export function resetDatabase() {
-  holder.state = null;
-  if (persistEnabled && existsSync(dbPath)) {
-    try {
-      writeFileSync(dbPath, "");
-    } catch {
-      /* ignoré */
-    }
-  }
-  load();
 }

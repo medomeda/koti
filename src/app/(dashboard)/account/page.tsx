@@ -9,14 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { requireUser } from "@/lib/auth/session";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { getAccount } from "@/modules/billing/billing.service";
 import { ctxFor } from "@/server/context";
+import { getAccount } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Mon abonnement" };
 
 export default async function AccountPage() {
   const user = await requireUser("/account");
-  const a = getAccount(ctxFor(user.id));
+  const a = (await getAccount(ctxFor(user.id)));
   const sub = a.subscription;
   const paid = a.plan.monthlyPrice > 0;
   return (

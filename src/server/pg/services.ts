@@ -11,12 +11,16 @@ import * as notifications from "@/modules/notifications/notification.service";
 import * as payments from "@/modules/payments/payment.service";
 import * as rotations from "@/modules/rotations/rotation.service";
 import * as tickets from "@/modules/tickets/ticket.service";
+import * as userStats from "@/modules/users/user.service";
 import * as tontines from "@/modules/tontines/tontine.service";
 import { ensureObligations } from "@/modules/contributions/contribution.service";
-import { runScheduledJobs as runJobs } from "@/server/jobs";
+import { eq } from "drizzle-orm";
+import { hourlySlotKey, runScheduledJobs as runJobs } from "@/server/jobs";
+import { ensureReady } from "@/server/db/ready";
+import { jobRuns } from "@/server/db/schema";
 import type { Ctx } from "@/server/context";
 import { getDb } from "@/server/db/client";
-import { pgRead, pgTx, type Scope } from "@/server/db/uow";
+import { pgTx, type Scope } from "@/server/db/uow";
 import { invitationRef, tontineOfObligation, tontineOfPayment } from "@/server/db/uow/resolve";
 import { reads, readsVia, writes, writesVia } from "@/server/db/uow/wrap";
 import { runOnState } from "@/server/db/store";
@@ -35,6 +39,8 @@ const ofUser = (ctx: Ctx): Scope => ({ users: [ctx.userId] });
 /* ------------------------------------------------------------------ Comptes (déjà asynchrones, sur PostgreSQL) */
 export { authenticate, changePassword, signUp, updateProfile } from "@/modules/users/user.pg";
 
+export const getProfileStats = reads(userStats.getProfileStats, (ctx) => ofUser(ctx));
+
 /* ------------------------------------------------------------------ Tontines */
 export const createTontine = writes(tontines.createTontine, (ctx) => ofUser(ctx));
 export const updateTontine = writes(tontines.updateTontine, (ctx, i) => onTontine(ctx, i.tontineId));
@@ -43,10 +49,14 @@ export const listMyTontines = reads(tontines.listMyTontines, (ctx) => ofUser(ctx
 export const getTontineAccess = reads(tontines.getTontineAccess, (ctx, id) => onTontine(ctx, id));
 export const getTontineOverview = reads(tontines.getTontineOverview, (ctx, id) => onTontine(ctx, id));
 
-/** Rattrapage des échéances : une transaction par tontine active (verrou par tontine, idempotent). */
+const tontinesNeedingSync = reads(tontines.tontinesNeedingSync, (ctx) => ofUser(ctx));
+
+/**
+ * Rattrapage des échéances : une lecture d'abord (cas courant : rien à faire), puis une transaction par tontine
+ * concernée, avec son verrou. Idempotent : l'unicité (période, ticket) de la base empêche tout doublon.
+ */
 export async function syncUserTontines(ctx: Ctx): Promise<void> {
-  const mine = await pgRead(ofUser(ctx), (s) => s.tontineMembers.filter((m) => m.userId === ctx.userId && m.status === "ACTIVE").map((m) => m.tontineId));
-  for (const id of mine) {
+  for (const id of await tontinesNeedingSync(ctx)) {
     await pgTx(onTontine(ctx, id), (s) =>
       runOnState(s, () => {
         const t = s.tontines.find((x) => x.id === id);
@@ -118,7 +128,16 @@ export const submitContactRequest = writes(contact.submitContactRequest, () => (
 export const countNewContactRequests = reads(contact.countNewContactRequests, () => ({ contacts: true }));
 
 /* ------------------------------------------------------------------ Tâches planifiées */
-export const runScheduledJobs = writes(runJobs, () => ({ everything: true }));
+const runJobsWrite = writes(runJobs, () => ({ everything: true }));
+/** Une lecture d'une ligne suffit à constater que le créneau horaire a déjà été traité (cas de presque tous les appels). */
+export async function runScheduledJobs(now = new Date(), opts: { force?: boolean } = {}): Promise<ReturnType<typeof runJobs>> {
+  if (!opts.force) {
+    await ensureReady();
+    const [done] = await getDb().select({ key: jobRuns.key }).from(jobRuns).where(eq(jobRuns.key, hourlySlotKey(now))).limit(1);
+    if (done) return { skipped: true as const };
+  }
+  return runJobsWrite(now, opts);
+}
 
 /* ------------------------------------------------------------------ Administration de la plateforme */
 const staff = (ctx: Ctx): Scope => ({ everything: true, people: [ctx.userId] });

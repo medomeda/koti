@@ -88,7 +88,7 @@ Le PRD demande de signaler les ambiguïtés : voici les choix faits, faciles à 
 
 | Aujourd'hui | Demain | Fichiers |
 |---|---|---|
-| `store.ts` (mémoire + JSON) | Drizzle + PostgreSQL, `tx()` → `db.transaction()` | `src/server/db/*`, accès dans `src/modules/*` |
+| ~~`store.ts` (mémoire + JSON)~~ ✅ fait | Drizzle + PostgreSQL via l'unité de travail (`server/db/uow`) et la façade `server/pg/services.ts` | `src/server/db/*`, `src/server/pg/*` |
 | Session/mot de passe maison | Better Auth (adaptateur Drizzle, vérification e-mail, reset) | `src/lib/auth/*`, `src/actions/auth.ts` |
 | Lien d'invitation affiché à l'admin | Envoi e-mail / SMS | `invitation.service.ts` (`createInvitation`) |
 | Notifications internes seulement | + e-mails transactionnels (outbox) | `notification.service.ts` (`notify`) |

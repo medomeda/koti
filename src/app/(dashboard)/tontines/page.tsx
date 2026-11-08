@@ -7,8 +7,8 @@ import { Card } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/ui/feedback";
 import { requireUser } from "@/lib/auth/session";
 import { cn } from "@/lib/utils/cn";
-import { listMyTontines } from "@/modules/tontines/tontine.service";
 import { ctxFor } from "@/server/context";
+import { listMyTontines } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Tontines" };
 
@@ -24,7 +24,7 @@ export default async function TontinesPage({ searchParams }: { searchParams: Pro
   const user = await requireUser();
   const { filter: raw } = await searchParams;
   const filter: Filter = FILTERS.some((f) => f.value === raw) ? (raw as Filter) : "all";
-  const all = listMyTontines(ctxFor(user.id));
+  const all = (await listMyTontines(ctxFor(user.id)));
   const archived = (s: string) => s === "COMPLETED" || s === "CANCELLED";
   const list = all.filter((t) =>
     filter === "admin" ? t.role === "ADMIN" && !archived(t.status) : filter === "member" ? t.role === "MEMBER" && !archived(t.status) : filter === "archived" ? archived(t.status) : !archived(t.status),

@@ -24,12 +24,11 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3700 HOSTNAME=0.0.0.0
-# Données de démonstration persistées dans un volume (voir docker-compose.yml).
-ENV KOTI_DEMO_DB_PATH=/data/koti-demo.json
-RUN mkdir -p /data && chown -R node:node /data
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+# Migrations SQL de la base (appliquées au démarrage si KOTI_AUTO_MIGRATE=1).
+COPY --from=builder --chown=node:node /app/drizzle ./drizzle
 USER node
 EXPOSE 3700
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

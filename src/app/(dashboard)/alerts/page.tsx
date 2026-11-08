@@ -2,17 +2,16 @@ import type { Metadata } from "next";
 import { InvitationCard, InvitationsEmpty, NotificationList } from "@/components/shared/alerts-client";
 import { PageHeader } from "@/components/ui/feedback";
 import { requireUser } from "@/lib/auth/session";
-import { listMyInvitations } from "@/modules/invitations/invitation.service";
-import { listNotifications } from "@/modules/notifications/notification.service";
 import { ctxFor } from "@/server/context";
+import { listMyInvitations, listNotifications } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Alertes" };
 
 export default async function AlertsPage() {
   const user = await requireUser("/alerts");
   const ctx = ctxFor(user.id);
-  const invitations = listMyInvitations(ctx);
-  const notifications = listNotifications(ctx).map(({ id, type, title, message, tontineName, href, readAt, createdAt }) => ({ id, type, title, message, tontineName, href, readAt, createdAt }));
+  const invitations = (await listMyInvitations(ctx));
+  const notifications = (await listNotifications(ctx)).map(({ id, type, title, message, tontineName, href, readAt, createdAt }) => ({ id, type, title, message, tontineName, href, readAt, createdAt }));
 
   return (
     <>

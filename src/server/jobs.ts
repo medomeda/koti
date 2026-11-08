@@ -18,8 +18,10 @@ const ROTATION_SOON_DAYS = 3;
  * - Protégées contre les exécutions multiples : verrou par créneau horaire dans `jobRuns`.
  * En production : déclenchées par un cron externe via POST /api/v1/jobs/run.
  */
+export const hourlySlotKey = (now: Date) => `hourly:${now.toISOString().slice(0, 13)}`;
+
 export function runScheduledJobs(now = new Date(), opts: { force?: boolean } = {}) {
-  const slotKey = `hourly:${now.toISOString().slice(0, 13)}`;
+  const slotKey = hourlySlotKey(now);
   if (!opts.force && read((s) => s.jobRuns.some((r) => r.key === slotKey))) return { skipped: true as const };
 
   return tx((s) => {

@@ -9,18 +9,18 @@ import { requireUser } from "@/lib/auth/session";
 import { FREQUENCY_UNIT } from "@/lib/constants/labels";
 import { formatFCFA } from "@/lib/utils/money";
 import { idSchema } from "@/lib/validations";
-import { getTontineAccess } from "@/modules/tontines/tontine.service";
 import { ctxFor } from "@/server/context";
 import { AppError } from "@/server/errors";
+import { getTontineAccess } from "@/server/pg/services";
 
 export default async function TontineLayout({ children, params }: { children: ReactNode; params: Promise<{ tontineId: string }> }) {
   const { tontineId } = await params;
   const user = await requireUser(`/tontines/${tontineId}`);
   if (!idSchema.safeParse(tontineId).success) notFound();
 
-  let access: ReturnType<typeof getTontineAccess>;
+  let access: Awaited<ReturnType<typeof getTontineAccess>>;
   try {
-    access = getTontineAccess(ctxFor(user.id), tontineId);
+    access = (await getTontineAccess(ctxFor(user.id), tontineId));
   } catch (err) {
     if (err instanceof AppError && (err.code === "NOT_FOUND" || err.code === "FORBIDDEN")) {
       // Même écran que la tontine existe ou non : on ne révèle rien.

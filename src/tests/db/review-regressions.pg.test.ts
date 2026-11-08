@@ -6,7 +6,6 @@ import type { DbState } from "@/server/db/store";
 import * as pg from "@/server/pg/services";
 import { afterAll, beforeAll } from "vitest";
 import { useConnection, type Connection } from "@/server/db/client";
-import { pgTx } from "@/server/db/uow";
 import { hasTestDb, openTestDb } from "./helpers";
 import { resetWithDemo, snapshot } from "./pg-harness";
 

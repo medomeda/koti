@@ -15,9 +15,9 @@ import { HEALTH } from "@/lib/constants/admin-labels";
 import { FREQUENCY_UNIT, TONTINE_STATUS } from "@/lib/constants/labels";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { listAdminTontines } from "@/modules/admin/admin.service";
 import { ctxFor } from "@/server/context";
 import { TONTINE_STATUSES, type TontineStatus } from "@/types/domain";
+import { listAdminTontines } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Tontines" };
 
@@ -30,7 +30,7 @@ export default async function AdminTontinesPage({ searchParams }: { searchParams
   const status = TONTINE_STATUSES.includes(one(sp.status) as TontineStatus) ? (one(sp.status) as TontineStatus) : undefined;
   const health = Object.keys(HEALTH).includes(one(sp.health) ?? "") ? one(sp.health) : undefined;
   const q = one(sp.q)?.slice(0, 80);
-  const data = guard(() => listAdminTontines(ctxFor(user.id), { q, status, health, page: Number(one(sp.page)) || 1 }));
+  const data = (await guard(async () => (await listAdminTontines(ctxFor(user.id), { q, status, health, page: Number(one(sp.page)) || 1 }))));
   const hrefFor = (page: number) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);

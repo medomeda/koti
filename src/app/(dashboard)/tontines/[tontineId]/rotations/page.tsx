@@ -11,15 +11,15 @@ import { cn } from "@/lib/utils/cn";
 import { formatDate, relativeDays, todayISO } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
 import { dueDateForPeriod } from "@/modules/contributions/frequency";
-import { listRotation } from "@/modules/rotations/rotation.service";
 import { ctxFor } from "@/server/context";
+import { listRotation } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Tours de main" };
 
 export default async function RotationsPage({ params }: { params: Promise<{ tontineId: string }> }) {
   const { tontineId } = await params;
   const user = await requireUser();
-  const { tontine, role, rows, mySlots } = guard(() => listRotation(ctxFor(user.id), tontineId));
+  const { tontine, role, rows, mySlots } = (await guard(async () => (await listRotation(ctxFor(user.id), tontineId))));
   const today = todayISO();
   const active = rows.filter((r) => r.status !== "CANCELLED");
   const cancelled = rows.filter((r) => r.status === "CANCELLED");

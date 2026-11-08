@@ -11,13 +11,13 @@ import { FREQUENCY_LABEL, WEEKDAY_LABEL } from "@/lib/constants/labels";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, formatShortDate, relativeDays, todayISO } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { getTontineOverview } from "@/modules/tontines/tontine.service";
 import { ctxFor } from "@/server/context";
+import { getTontineOverview } from "@/server/pg/services";
 
 export default async function TontineOverviewPage({ params }: { params: Promise<{ tontineId: string }> }) {
   const { tontineId } = await params;
   const user = await requireUser();
-  const o = guard(() => getTontineOverview(ctxFor(user.id), tontineId));
+  const o = (await guard(async () => (await getTontineOverview(ctxFor(user.id), tontineId))));
   const { tontine } = o;
   const today = todayISO();
   const base = `/tontines/${tontine.id}`;

@@ -9,16 +9,15 @@ import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { platformCan } from "@/lib/permissions/platform";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
-import { platformRoleOf } from "@/modules/admin/admin.service";
-import { listAnnouncements } from "@/modules/admin/support.service";
 import { ctxFor } from "@/server/context";
+import { listAnnouncements, platformRoleOf } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Annonces" };
 
 export default async function AdminAnnouncementsPage() {
   const user = await requireUser("/admin/annonces");
-  const items = guard(() => listAnnouncements(ctxFor(user.id)));
-  const canManage = platformCan(platformRoleOf(user.id), "announcement.manage");
+  const items = (await guard(async () => (await listAnnouncements(ctxFor(user.id)))));
+  const canManage = platformCan((await platformRoleOf(user.id)), "announcement.manage");
   const live = items.filter((a) => a.live).length;
   return (
     <>

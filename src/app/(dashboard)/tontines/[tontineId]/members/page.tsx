@@ -12,9 +12,8 @@ import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { listTontineInvitations } from "@/modules/invitations/invitation.service";
-import { listMembers } from "@/modules/members/member.service";
 import { ctxFor } from "@/server/context";
+import { listMembers, listTontineInvitations } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Membres" };
 
@@ -23,9 +22,9 @@ export default async function MembersPage({ params, searchParams }: { params: Pr
   const { former } = await searchParams;
   const user = await requireUser();
   const ctx = ctxFor(user.id);
-  const { tontine, role, members, quota } = guard(() => listMembers(ctx, tontineId, { includeFormer: former === "1" }));
+  const { tontine, role, members, quota } = (await guard(async () => (await listMembers(ctx, tontineId, { includeFormer: former === "1" }))));
   const isAdmin = role === "ADMIN";
-  const invitations = isAdmin ? listTontineInvitations(ctx, tontineId) : [];
+  const invitations = isAdmin ? (await listTontineInvitations(ctx, tontineId)) : [];
   const pendingInvites = invitations.filter((i) => i.status === "PENDING");
   const closed = tontine.status === "COMPLETED" || tontine.status === "CANCELLED";
   const memberLimitReached = quota.members.used >= quota.members.limit;

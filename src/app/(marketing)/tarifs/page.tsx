@@ -4,16 +4,16 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { Button } from "@/components/ui/button";
 import { formatFCFA } from "@/lib/utils/money";
-import { getPublicPlans } from "@/modules/billing/billing.service";
 import { cn } from "@/lib/utils/cn";
+import { getPublicPlans } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Tarifs", description: "Une offre gratuite pour démarrer, des offres payantes pour les organisateurs et les associations." };
 
 // Les offres sont réglables depuis l'administration : rendu à la demande.
 export const dynamic = "force-dynamic";
 
-export default function PricingPage() {
-  const plans = getPublicPlans();
+export default async function PricingPage() {
+  const plans = (await getPublicPlans());
   return (
     <>
       <SiteHeader />

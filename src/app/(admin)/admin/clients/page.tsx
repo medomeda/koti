@@ -12,9 +12,10 @@ import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { PLAN_TONE } from "@/lib/constants/admin-labels";
 import { formatDate } from "@/lib/utils/dates";
-import { listClients, type ClientFilters } from "@/modules/admin/admin.service";
+import { type ClientFilters } from "@/modules/admin/admin.service";
 import { ctxFor } from "@/server/context";
 import type { PlanId } from "@/types/domain";
+import { listClients } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Clients" };
 
@@ -39,7 +40,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
     quota: one(sp.quota) === "1",
     page: Number(one(sp.page)) || 1,
   };
-  const data = guard(() => listClients(ctxFor(user.id), filters));
+  const data = (await guard(async () => (await listClients(ctxFor(user.id), filters))));
   const hrefFor = (page: number) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries({ q: filters.q, plan: filters.plan, status: filters.status, type: filters.type, activity: filters.activity, quota: filters.quota ? "1" : undefined })) if (v) p.set(k, String(v));

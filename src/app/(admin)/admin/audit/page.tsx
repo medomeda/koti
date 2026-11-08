@@ -11,8 +11,9 @@ import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { ACTION_LABEL, describeChange } from "@/lib/constants/admin-labels";
 import { formatDateTime } from "@/lib/utils/dates";
-import { AUDIT_CATEGORIES, listPlatformAudit, type AuditCategory } from "@/modules/admin/support.service";
+import { AUDIT_CATEGORIES, type AuditCategory } from "@/modules/admin/support.service";
 import { ctxFor } from "@/server/context";
+import { listPlatformAudit } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Journal d'audit" };
 
@@ -24,7 +25,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
   const user = await requireUser("/admin/audit");
   const category = (Object.keys(AUDIT_CATEGORIES) as AuditCategory[]).find((k) => k === one(sp.category));
   const actorId = one(sp.actor) || undefined;
-  const data = guard(() => listPlatformAudit(ctxFor(user.id), { category, actorId, page: Number(one(sp.page)) || 1 }));
+  const data = (await guard(async () => (await listPlatformAudit(ctxFor(user.id), { category, actorId, page: Number(one(sp.page)) || 1 }))));
   const hrefFor = (page: number) => {
     const p = new URLSearchParams();
     if (category) p.set("category", category);

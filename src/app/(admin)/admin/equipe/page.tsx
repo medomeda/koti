@@ -10,16 +10,15 @@ import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { platformCan } from "@/lib/permissions/platform";
 import { formatDate } from "@/lib/utils/dates";
-import { platformRoleOf } from "@/modules/admin/admin.service";
-import { listTeam } from "@/modules/admin/team.service";
 import { ctxFor } from "@/server/context";
+import { listTeam, platformRoleOf } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Équipe" };
 
 export default async function AdminTeamPage() {
   const user = await requireUser("/admin/equipe");
-  const team = guard(() => listTeam(ctxFor(user.id)));
-  const canManage = platformCan(platformRoleOf(user.id), "team.manage");
+  const team = (await guard(async () => (await listTeam(ctxFor(user.id)))));
+  const canManage = platformCan((await platformRoleOf(user.id)), "team.manage");
   return (
     <>
       <PageHeader title="Équipe KOTI" description="Les collaborateurs ayant accès à l'administration, avec leur rôle. Les invitations sont à usage unique." actions={canManage ? <InviteStaffButton /> : undefined} />

@@ -10,11 +10,10 @@ import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { can } from "@/lib/permissions";
 import { formatDateTime } from "@/lib/utils/dates";
-import { listTontineAudit } from "@/modules/audit/audit.service";
-import { getTontineAccess } from "@/modules/tontines/tontine.service";
 import { transitionsFor } from "@/modules/tontines/transitions";
 import { ctxFor } from "@/server/context";
 import type { Weekday } from "@/types/domain";
+import { getTontineAccess, listTontineAudit } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Paramètres de la tontine" };
 
@@ -42,7 +41,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ tonti
   const { tontineId } = await params;
   const user = await requireUser();
   const ctx = ctxFor(user.id);
-  const { tontine, role } = guard(() => getTontineAccess(ctx, tontineId));
+  const { tontine, role } = (await guard(async () => (await getTontineAccess(ctx, tontineId))));
   if (!can(role, "tontine.update")) {
     return (
       <StatusScreen
@@ -57,7 +56,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ tonti
       />
     );
   }
-  const audit = listTontineAudit(ctx, tontineId, 40);
+  const audit = (await listTontineAudit(ctx, tontineId, 40));
   const transitions = transitionsFor(tontine.status);
   const readOnly = tontine.status === "COMPLETED" || tontine.status === "CANCELLED";
 

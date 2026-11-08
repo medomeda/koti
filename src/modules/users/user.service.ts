@@ -1,11 +1,12 @@
 import "server-only";
-import { DUMMY_HASH, hashPassword, verifyPassword } from "@/lib/auth/password";
+import { hashPassword } from "@/lib/auth/password";
 import { ensureSubscription } from "@/modules/billing/billing.service";
-import { isoNow, type Ctx } from "@/server/context";
-import { read, tx, type DbState } from "@/server/db/store";
+import { read, type DbState } from "@/server/db/store";
+import type { Ctx } from "@/server/context";
 import { AppError } from "@/server/errors";
 import { newId } from "@/server/ids";
 
+/** Création de compte DANS l'état en mémoire : uniquement pour construire le jeu de démonstration (`seed.ts`). Les comptes réels passent par `user.pg.ts`. */
 export function registerUser(s: DbState, input: { fullName: string; email: string; phone: string; password: string; now: Date; passwordHash?: string }): string {
   if (s.users.some((u) => u.email === input.email)) throw new AppError("CONFLICT", "Un compte existe déjà avec cet e-mail.", { email: "Adresse déjà utilisée." });
   if (s.userProfiles.some((p) => p.phone === input.phone)) throw new AppError("CONFLICT", "Ce numéro est déjà associé à un compte.", { phone: "Numéro déjà utilisé." });
@@ -17,48 +18,6 @@ export function registerUser(s: DbState, input: { fullName: string; email: strin
   s.userProfiles.push({ userId: id, fullName: input.fullName, phone: input.phone, avatarUrl: null, createdAt: now, updatedAt: now });
   // Phase backend : Better Auth envoie l'e-mail de vérification.
   return id;
-}
-
-export function signUp(input: { fullName: string; email: string; phone: string; password: string }): string {
-  const passwordHash = hashPassword(input.password); // hors transaction : opération coûteuse
-  return tx((s) => registerUser(s, { ...input, passwordHash, now: new Date() }));
-}
-
-/** Renvoie l'id utilisateur ou null. Message d'erreur générique côté appelant (pas d'énumération de comptes). */
-export function authenticate(email: string, password: string): string | null {
-  const found = read((s) => {
-    const user = s.users.find((u) => u.email === email);
-    const cred = user && s.credentials.find((c) => c.userId === user.id);
-    return user && cred ? { id: user.id, hash: cred.passwordHash, suspended: user.status === "SUSPENDED" } : null;
-  });
-  const ok = verifyPassword(password, found?.hash ?? DUMMY_HASH);
-  if (!ok || !found) return null;
-  // Compte suspendu par l'équipe KOTI : connexion refusée (mot de passe pourtant correct).
-  if (found.suspended) throw new AppError("FORBIDDEN", "Ce compte est suspendu. Contactez l'équipe KOTI pour en savoir plus.");
-  return found.id;
-}
-
-export function updateProfile(ctx: Ctx, input: { fullName: string; phone: string }) {
-  tx((s) => {
-    if (s.userProfiles.some((p) => p.phone === input.phone && p.userId !== ctx.userId)) throw new AppError("CONFLICT", "Ce numéro est déjà associé à un autre compte.", { phone: "Numéro déjà utilisé." });
-    const profile = s.userProfiles.find((p) => p.userId === ctx.userId);
-    if (!profile) throw new AppError("NOT_FOUND", "Profil introuvable.");
-    profile.fullName = input.fullName;
-    profile.phone = input.phone;
-    profile.updatedAt = isoNow(ctx);
-  });
-}
-
-export function changePassword(ctx: Ctx, input: { currentPassword: string; newPassword: string }) {
-  const current = read((s) => s.credentials.find((c) => c.userId === ctx.userId)?.passwordHash);
-  if (!current || !verifyPassword(input.currentPassword, current)) throw new AppError("VALIDATION", "Mot de passe actuel incorrect.", { currentPassword: "Mot de passe incorrect." });
-  const next = hashPassword(input.newPassword);
-  tx((s) => {
-    const cred = s.credentials.find((c) => c.userId === ctx.userId)!;
-    cred.passwordHash = next;
-    // Révoque toutes les autres sessions : la session courante sera recréée par l'action.
-    s.sessions = s.sessions.filter((x) => x.userId !== ctx.userId);
-  });
 }
 
 export function getProfileStats(ctx: Ctx) {

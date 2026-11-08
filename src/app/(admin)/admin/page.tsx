@@ -7,8 +7,8 @@ import { Alert, PageHeader, StatCard } from "@/components/ui/feedback";
 import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { formatFCFA } from "@/lib/utils/money";
-import { getPlatformOverview } from "@/modules/admin/admin.service";
 import { ctxFor } from "@/server/context";
+import { getPlatformOverview } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
 
@@ -27,7 +27,7 @@ function Delta({ now, before, unit = "" }: { now: number; before: number; unit?:
 
 export default async function AdminDashboardPage() {
   const user = await requireUser("/admin");
-  const o = guard(() => getPlatformOverview(ctxFor(user.id)));
+  const o = (await guard(async () => (await getPlatformOverview(ctxFor(user.id)))));
   const k = o.kpis;
   return (
     <>

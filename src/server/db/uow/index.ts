@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { getDb, type Db, type Executor } from "../client";
+import { ensureReady } from "../ready";
 import { emptyState, SCHEMA_VERSION, type DbState } from "../store";
 import { canonical, INSERT_ORDER, keyOf, REGISTRY, toDomain, toRow, type TableKey } from "./registry";
 
@@ -201,16 +202,21 @@ async function persist(ex: Executor, before: Map<TableKey, Map<string, string>>,
   }
 }
 
-/** Insère tout un état dans une base vide (import du jeu de démonstration, jeu de données de test). */
+const emptySnapshot = () => new Map<TableKey, Map<string, string>>(INSERT_ORDER.map((k) => [k, new Map()]));
+
+/** Insère tout un état dans une base vide, dans la transaction `tx` déjà ouverte par l'appelant. */
+export async function insertAllIn(tx: Executor, state: DbState): Promise<void> {
+  await persist(tx, emptySnapshot(), state);
+}
+
+/** Insère tout un état dans une base vide (jeu de données de test), en une transaction. */
 export async function insertAll(state: DbState, db: Db = getDb()): Promise<void> {
-  await db.transaction(async (tx) => {
-    const empty = new Map<TableKey, Map<string, string>>(INSERT_ORDER.map((k) => [k, new Map()]));
-    await persist(tx, empty, state);
-  });
+  await db.transaction((tx) => insertAllIn(tx, state));
 }
 
 /** Lecture : état cohérent (instantané) du périmètre demandé, sans verrou. */
 export async function pgRead<T>(scope: Scope, fn: (s: Readonly<DbState>) => T, db: Db = getDb()): Promise<T> {
+  await ensureReady();
   return db.transaction(async (tx) => fn(await load(tx, scope)), { isolationLevel: "repeatable read", accessMode: "read only" });
 }
 
@@ -223,6 +229,7 @@ const sqlState = (err: unknown) => (err as { code?: string; cause?: { code?: str
  * `fn` ne doit donc avoir aucun effet hors base.
  */
 export async function pgTx<T>(scope: Scope, fn: (s: DbState) => T, db: Db = getDb()): Promise<T> {
+  await ensureReady();
   for (let attempt = 1; ; attempt++) {
     try {
       return await db.transaction(async (tx) => {

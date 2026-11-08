@@ -12,9 +12,10 @@ import { OBLIGATION_STATUS } from "@/lib/constants/labels";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, formatShortDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { listTontineObligations, type ObligationView } from "@/modules/payments/payment.service";
+import { type ObligationView } from "@/modules/payments/payment.service";
 import { ctxFor } from "@/server/context";
 import type { ObligationStatus } from "@/types/domain";
+import { listTontineObligations } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Paiements de la tontine" };
 
@@ -48,7 +49,7 @@ export default async function TontinePaymentsPage({ params, searchParams }: { pa
   const { tontineId } = await params;
   const sp = await searchParams;
   const user = await requireUser();
-  const { tontine, role, rows, stats, periods } = guard(() => listTontineObligations(ctxFor(user.id), tontineId));
+  const { tontine, role, rows, stats, periods } = (await guard(async () => (await listTontineObligations(ctxFor(user.id), tontineId))));
   const isAdmin = role === "ADMIN";
 
   // Filtres validés contre les valeurs existantes : une URL modifiée à la main ne casse rien.

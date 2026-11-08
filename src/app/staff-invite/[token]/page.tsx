@@ -9,14 +9,14 @@ import { ROLE_LABEL } from "@/lib/constants/admin-labels";
 import { getSession } from "@/lib/auth/session";
 import { formatDate } from "@/lib/utils/dates";
 import { tokenSchema } from "@/lib/validations";
-import { previewStaffInvitation } from "@/modules/admin/team.service";
+import { previewStaffInvitation } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Invitation à l'équipe KOTI", referrer: "no-referrer", robots: { index: false, follow: false } };
 
 export default async function StaffInvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const user = await getSession();
-  const preview = tokenSchema.safeParse(token).success ? previewStaffInvitation(token) : null;
+  const preview = tokenSchema.safeParse(token).success ? (await previewStaffInvitation(token)) : null;
   const path = `/staff-invite/${token}`;
   return (
     <div className="flex min-h-dvh flex-col items-center px-4 py-8">

@@ -2,6 +2,7 @@ import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { getDb, transaction, type Db, type Executor } from "@/server/db/client";
+import { ensureReady } from "@/server/db/ready";
 import { uniqueViolation } from "@/server/db/pg-errors";
 import { credentials, sessions, subscriptions, userProfiles, users } from "@/server/db/schema";
 import type { Ctx } from "@/server/context";
@@ -43,12 +44,14 @@ export async function registerUser(tx: Executor, input: { fullName: string; emai
 }
 
 export async function signUp(input: { fullName: string; email: string; phone: string; password: string }, db: Db = getDb()): Promise<string> {
+  await ensureReady();
   const passwordHash = hashPassword(input.password); // hors transaction : opération coûteuse
   return transaction((tx) => registerUser(tx, { ...input, passwordHash, now: new Date() }), db);
 }
 
 /** Renvoie l'id utilisateur ou null. Message générique côté appelant (pas d'énumération de comptes). */
 export async function authenticate(email: string, password: string, db: Db = getDb()): Promise<string | null> {
+  await ensureReady();
   const [found] = await db
     .select({ id: users.id, status: users.status, hash: credentials.passwordHash })
     .from(users)

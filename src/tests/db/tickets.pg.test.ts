@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- formes JSON héritées (v2) manipulées volontairement sans typage */
+ 
 import { beforeEach, describe, expect, it } from "vitest";
 import { addDays, todayISO } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
-import { migrateV2ToV3 } from "@/server/db/migrations";
 import type { DbState } from "@/server/db/store";
 import * as pg from "@/server/pg/services";
 import { afterAll, beforeAll } from "vitest";
@@ -224,78 +223,4 @@ describe("Tickets — obligations, paiements et rotation", () => {
     await expect((async () => (await pg.createInvitation(ctxFor(ahmed()), { tontineId: tid, email: "koffi@koti.demo", phone: null })))()).rejects.toThrow(/complète|place|attribués/);
   });
 });
-
-describe("Migration v2 → v3", () => {
-  async function legacyFromSeed() {
-    const v3 = await snap((s) => structuredClone(s)) as unknown as Record<string, unknown> & { tontineTickets: unknown; rotationCycles: unknown };
-    const v2 = structuredClone(v3) as Record<string, any>;
-    delete v2.tontineTickets;
-    delete v2.rotationCycles;
-    v2.version = 2;
-    for (const t of v2.tontines) {
-      delete t.multipleTicketsAllowed;
-      delete t.maxTicketsPerMember;
-      delete t.nextTicketNumber;
-    }
-    // Le modèle v2 ne connaît qu'un tour par adhésion : on écarte les tickets supplémentaires du jeu de démonstration (brouillon).
-    const extra = new Set(
-      (v3.tontineTickets as Array<{ id: string; memberId: string; ticketNumber: number }>)
-        .filter((tk) => (v3.tontineTickets as Array<{ memberId: string; ticketNumber: number }>).some((o) => o.memberId === tk.memberId && o.ticketNumber < tk.ticketNumber))
-        .map((tk) => tk.id),
-    );
-    v2.rotationSlots = v2.rotationSlots.filter((sl: any) => !extra.has(sl.ticketId));
-    for (const o of v2.contributionObligations) delete o.ticketId;
-    for (const sl of v2.rotationSlots) {
-      delete sl.ticketId;
-      delete sl.cycleId;
-    }
-    return { v2, original: v3 as Record<string, any> };
-  }
-
-  it("10. conserve obligations, paiements et tours à l'identique et les rattache à un ticket initial", async () => {
-    const { v2, original } = (await legacyFromSeed());
-    const snapshot = structuredClone(v2);
-    const out = migrateV2ToV3(v2) as unknown as Record<string, any>;
-    expect(v2).toEqual(snapshot); // la source n'est pas modifiée
-    expect(out.version).toBe(3);
-
-    expect(out.tontineTickets).toHaveLength(v2.tontineMembers.length);
-    expect(out.payments).toEqual(v2.payments);
-    expect(out.auditLogs).toEqual(v2.auditLogs);
-    expect(out.contributionPeriods).toEqual(v2.contributionPeriods);
-
-    const strip = (o: Record<string, any>, keys: string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k)));
-    expect(out.contributionObligations.map((o: any) => strip(o, ["ticketId"]))).toEqual(v2.contributionObligations);
-    expect(out.rotationSlots.map((o: any) => strip(o, ["ticketId", "cycleId"]))).toEqual(v2.rotationSlots);
-
-    const memberOfTicket = new Map<string, string>(out.tontineTickets.map((t: any) => [t.id, t.memberId]));
-    expect(out.contributionObligations.every((o: any) => memberOfTicket.get(o.ticketId) === o.memberId)).toBe(true);
-    expect(out.rotationSlots.every((x: any) => memberOfTicket.get(x.ticketId) === x.memberId)).toBe(true);
-
-    // Un ticket par adhésion, numéros uniques par tontine ; compteur prêt pour la suite.
-    for (const t of out.tontines) {
-      const tickets = out.tontineTickets.filter((x: any) => x.tontineId === t.id);
-      expect(new Set(tickets.map((x: any) => x.ticketNumber)).size).toBe(tickets.length);
-      expect(t.nextTicketNumber).toBe(tickets.length + 1);
-      expect(t).toMatchObject({ multipleTicketsAllowed: false, maxTicketsPerMember: 1 });
-      const started = ["ACTIVE", "PAUSED", "COMPLETED"].includes(t.status);
-      expect(out.rotationCycles.some((c: any) => c.tontineId === t.id)).toBe(started);
-    }
-    // Les montants totaux (obligations) sont inchangés.
-    const sum = (a: any[]) => a.reduce((n, o) => n + o.expectedAmount, 0);
-    expect(sum(out.contributionObligations)).toBe(sum(original.contributionObligations));
-  });
-
-  it("s'arrête avec un message précis plutôt que de deviner", async () => {
-    const { v2 } = (await legacyFromSeed());
-    v2.contributionObligations[0].memberId = "inconnu";
-    await expect((async () => migrateV2ToV3(v2))()).rejects.toThrow(/Migration v2→v3 interrompue/);
-
-    const { v2: v2b } = (await legacyFromSeed());
-    const live = v2b.rotationSlots.find((x: any) => x.status !== "CANCELLED");
-    v2b.rotationSlots.push({ ...live, id: "doublon" });
-    await expect((async () => migrateV2ToV3(v2b))()).rejects.toThrow(/plusieurs tours non annulés/);
-  });
-});
-
 });

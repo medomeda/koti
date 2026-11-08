@@ -157,6 +157,19 @@ export function syncUserTontines(ctx: Ctx) {
   });
 }
 
+/** Tontines actives de l'utilisateur dont des échéances restent à générer (lecture seule : aucune écriture si la liste est vide). */
+export function tontinesNeedingSync(ctx: Ctx): string[] {
+  return read((s) =>
+    s.tontineMembers
+      .filter((m) => m.userId === ctx.userId && m.status === "ACTIVE")
+      .map((m) => m.tontineId)
+      .filter((id) => {
+        const t = s.tontines.find((x) => x.id === id);
+        return t?.status === "ACTIVE" && wouldGenerate(s, ctx, t);
+      }),
+  );
+}
+
 function wouldGenerate(s: Readonly<DbState>, ctx: Ctx, t: Tontine): boolean {
   const copy = { ...s, contributionPeriods: [...s.contributionPeriods], contributionObligations: [...s.contributionObligations] } as DbState;
   return ensureObligations(copy, ctx, t) > 0;

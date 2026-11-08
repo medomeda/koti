@@ -2,11 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { addClientNote, changeClientPlan, grantTrial, previewPlanImpact, reactivateUser, resetPlan, suspendUser, updatePlan } from "@/modules/admin/admin.service";
-import { createAnnouncement, handleContactRequest, reopenContactRequest, setAnnouncementActive } from "@/modules/admin/support.service";
-import { acceptStaffInvitation, changeStaffRole, inviteStaff, revokeStaffInvitation, setStaffStatus } from "@/modules/admin/team.service";
 import { emailSchema, idSchema, tokenSchema } from "@/lib/validations";
 import { authed } from "./_shared";
+import { acceptStaffInvitation, addClientNote, changeClientPlan, changeStaffRole, createAnnouncement, grantTrial, handleContactRequest, inviteStaff, previewPlanImpact, reactivateUser, reopenContactRequest, resetPlan, revokeStaffInvitation, setAnnouncementActive, setStaffStatus, suspendUser, updatePlan } from "@/server/pg/services";
 
 /**
  * Actions de l'espace d'administration. Chaque appel revérifie, côté serveur, que l'utilisateur est un membre
@@ -20,36 +18,36 @@ const done = (userId: string) => {
 };
 
 export async function suspendUserAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, reason }), raw, (input, ctx) => {
-    suspendUser(ctx, input);
+  return authed(z.object({ userId: idSchema, reason }), raw, async (input, ctx) => {
+    (await suspendUser(ctx, input));
     done(input.userId);
   });
 }
 
 export async function reactivateUserAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, reason }), raw, (input, ctx) => {
-    reactivateUser(ctx, input);
+  return authed(z.object({ userId: idSchema, reason }), raw, async (input, ctx) => {
+    (await reactivateUser(ctx, input));
     done(input.userId);
   });
 }
 
 export async function changeClientPlanAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, planId: plan, reason }), raw, (input, ctx) => {
-    changeClientPlan(ctx, input);
+  return authed(z.object({ userId: idSchema, planId: plan, reason }), raw, async (input, ctx) => {
+    (await changeClientPlan(ctx, input));
     done(input.userId);
   });
 }
 
 export async function grantTrialAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, planId: plan, days: z.coerce.number().int().min(1).max(90), reason }), raw, (input, ctx) => {
-    grantTrial(ctx, input);
+  return authed(z.object({ userId: idSchema, planId: plan, days: z.coerce.number().int().min(1).max(90), reason }), raw, async (input, ctx) => {
+    (await grantTrial(ctx, input));
     done(input.userId);
   });
 }
 
 export async function addClientNoteAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, text: z.string().trim().min(3, "Note trop courte.").max(1000, "1000 caractères maximum.") }), raw, (input, ctx) => {
-    addClientNote(ctx, input);
+  return authed(z.object({ userId: idSchema, text: z.string().trim().min(3, "Note trop courte.").max(1000, "1000 caractères maximum.") }), raw, async (input, ctx) => {
+    (await addClientNote(ctx, input));
     done(input.userId);
   });
 }
@@ -69,12 +67,12 @@ const planInput = z.object({
 
 /** Aperçu de l'impact d'un réglage d'offre (lecture seule, rien n'est enregistré). */
 export async function previewPlanAction(raw: unknown) {
-  return authed(planInput, raw, (input, ctx) => previewPlanImpact(ctx, input));
+  return authed(planInput, raw, async (input, ctx) => (await previewPlanImpact(ctx, input)));
 }
 
 export async function updatePlanAction(raw: unknown) {
-  return authed(planInput.extend({ reason }), raw, (input, ctx) => {
-    updatePlan(ctx, input);
+  return authed(planInput.extend({ reason }), raw, async (input, ctx) => {
+    (await updatePlan(ctx, input));
     revalidatePath("/admin", "layout");
     revalidatePath("/tarifs");
     revalidatePath("/account");
@@ -82,8 +80,8 @@ export async function updatePlanAction(raw: unknown) {
 }
 
 export async function resetPlanAction(raw: unknown) {
-  return authed(z.object({ planId: plan, reason }), raw, (input, ctx) => {
-    resetPlan(ctx, input);
+  return authed(z.object({ planId: plan, reason }), raw, async (input, ctx) => {
+    (await resetPlan(ctx, input));
     revalidatePath("/admin", "layout");
     revalidatePath("/tarifs");
     revalidatePath("/account");
@@ -93,15 +91,15 @@ export async function resetPlanAction(raw: unknown) {
 /* ------------------------------------------------------------------ Étape 4 : messages, annonces */
 
 export async function handleContactRequestAction(raw: unknown) {
-  return authed(z.object({ id: idSchema, reply: z.string().trim().max(1000, "1000 caractères maximum.") }), raw, (input, ctx) => {
-    handleContactRequest(ctx, input);
+  return authed(z.object({ id: idSchema, reply: z.string().trim().max(1000, "1000 caractères maximum.") }), raw, async (input, ctx) => {
+    (await handleContactRequest(ctx, input));
     revalidatePath("/admin", "layout");
   });
 }
 
 export async function reopenContactRequestAction(raw: unknown) {
-  return authed(z.object({ id: idSchema, reason }), raw, (input, ctx) => {
-    reopenContactRequest(ctx, input);
+  return authed(z.object({ id: idSchema, reason }), raw, async (input, ctx) => {
+    (await reopenContactRequest(ctx, input));
     revalidatePath("/admin", "layout");
   });
 }
@@ -116,8 +114,8 @@ export async function createAnnouncementAction(raw: unknown) {
       endDate: z.string().trim().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide."),
     }),
     raw,
-    (input, ctx) => {
-      createAnnouncement(ctx, { title: input.title, message: input.message, tone: input.tone, endsAt: input.endDate ? `${input.endDate}T23:59:59.000Z` : null });
+    async (input, ctx) => {
+      (await createAnnouncement(ctx, { title: input.title, message: input.message, tone: input.tone, endsAt: input.endDate ? `${input.endDate}T23:59:59.000Z` : null }));
       revalidatePath("/admin", "layout");
       revalidatePath("/", "layout");
     },
@@ -125,8 +123,8 @@ export async function createAnnouncementAction(raw: unknown) {
 }
 
 export async function setAnnouncementActiveAction(raw: unknown) {
-  return authed(z.object({ id: idSchema, active: z.boolean() }), raw, (input, ctx) => {
-    setAnnouncementActive(ctx, input);
+  return authed(z.object({ id: idSchema, active: z.boolean() }), raw, async (input, ctx) => {
+    (await setAnnouncementActive(ctx, input));
     revalidatePath("/admin", "layout");
     revalidatePath("/", "layout");
   });
@@ -137,38 +135,38 @@ export async function setAnnouncementActiveAction(raw: unknown) {
 const staffRole = z.enum(["SUPPORT", "SUPER_ADMIN"]);
 
 export async function inviteStaffAction(raw: unknown) {
-  return authed(z.object({ email: emailSchema, role: staffRole }), raw, (input, ctx) => {
-    const { token } = inviteStaff(ctx, input);
+  return authed(z.object({ email: emailSchema, role: staffRole }), raw, async (input, ctx) => {
+    const { token } = (await inviteStaff(ctx, input));
     revalidatePath("/admin/equipe");
     return { token };
   });
 }
 
 export async function revokeStaffInvitationAction(raw: unknown) {
-  return authed(z.object({ id: idSchema }), raw, (input, ctx) => {
-    revokeStaffInvitation(ctx, input);
+  return authed(z.object({ id: idSchema }), raw, async (input, ctx) => {
+    (await revokeStaffInvitation(ctx, input));
     revalidatePath("/admin/equipe");
   });
 }
 
 export async function changeStaffRoleAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, role: staffRole, reason }), raw, (input, ctx) => {
-    changeStaffRole(ctx, input);
+  return authed(z.object({ userId: idSchema, role: staffRole, reason }), raw, async (input, ctx) => {
+    (await changeStaffRole(ctx, input));
     revalidatePath("/admin", "layout");
   });
 }
 
 export async function setStaffStatusAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, active: z.boolean(), reason }), raw, (input, ctx) => {
-    setStaffStatus(ctx, input);
+  return authed(z.object({ userId: idSchema, active: z.boolean(), reason }), raw, async (input, ctx) => {
+    (await setStaffStatus(ctx, input));
     revalidatePath("/admin", "layout");
   });
 }
 
 /** Accepte une invitation d'équipe avec le compte connecté (l'e-mail doit correspondre). */
 export async function acceptStaffInvitationAction(raw: unknown) {
-  return authed(z.object({ token: tokenSchema }), raw, (input, ctx) => {
-    acceptStaffInvitation(ctx, input.token);
+  return authed(z.object({ token: tokenSchema }), raw, async (input, ctx) => {
+    (await acceptStaffInvitation(ctx, input.token));
     revalidatePath("/", "layout");
   });
 }

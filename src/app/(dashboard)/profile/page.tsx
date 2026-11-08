@@ -10,19 +10,18 @@ import { Avatar } from "@/components/ui/misc";
 import { requireUser } from "@/lib/auth/session";
 import { allowDemoReset } from "@/lib/demo";
 import { formatDate } from "@/lib/utils/dates";
-import { platformRoleOf } from "@/modules/admin/admin.service";
-import { getAccount } from "@/modules/billing/billing.service";
-import { getProfileStats } from "@/modules/users/user.service";
 import { ctxFor } from "@/server/context";
+import { getAccount, platformRoleOf } from "@/server/pg/services";
+import { getProfileStats } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Profil" };
 
 export default async function ProfilePage() {
   const user = await requireUser("/profile");
-  const stats = getProfileStats(ctxFor(user.id));
+  const stats = (await getProfileStats(ctxFor(user.id)));
   const allowReset = allowDemoReset();
-  const account = getAccount(ctxFor(user.id));
-  const staffRole = platformRoleOf(user.id);
+  const account = (await getAccount(ctxFor(user.id)));
+  const staffRole = (await platformRoleOf(user.id));
   return (
     <>
       <PageHeader title="Profil" description="Vos informations personnelles et la sécurité de votre compte." />

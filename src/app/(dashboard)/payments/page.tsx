@@ -10,8 +10,9 @@ import { requireUser } from "@/lib/auth/session";
 import { PAYMENT_METHOD_LABEL } from "@/lib/constants/labels";
 import { formatDate, formatDateTime, todayISO } from "@/lib/utils/dates";
 import { formatFCFA, sumAmounts } from "@/lib/utils/money";
-import { listMyObligations, type ObligationView } from "@/modules/payments/payment.service";
+import { type ObligationView } from "@/modules/payments/payment.service";
 import { ctxFor } from "@/server/context";
+import { listMyObligations } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Mes paiements" };
 
@@ -49,7 +50,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const { tab } = await searchParams;
   const current = TABS.includes(tab as (typeof TABS)[number]) ? tab! : "to-pay";
   const today = todayISO();
-  const { toPay, pending, history } = listMyObligations(ctxFor(user.id));
+  const { toPay, pending, history } = (await listMyObligations(ctxFor(user.id)));
   const late = toPay.filter((o) => o.status === "LATE");
   const paidTotal = sumAmounts(history.filter((o) => o.status === "PAID").map((o) => o.lastPayment?.amount ?? o.expectedAmount));
 

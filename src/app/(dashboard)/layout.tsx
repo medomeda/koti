@@ -4,26 +4,22 @@ import { DemoBanner } from "@/components/layout/demo-banner";
 import { isDemoMode } from "@/lib/demo";
 import { requireUser } from "@/lib/auth/session";
 import { AnnouncementBanner } from "@/components/layout/announcement-banner";
-import { activeAnnouncements } from "@/modules/admin/support.service";
-import { unreadCount } from "@/modules/notifications/notification.service";
-import { listMyObligations } from "@/modules/payments/payment.service";
-import { syncUserTontines } from "@/modules/tontines/tontine.service";
 import { ctxFor } from "@/server/context";
-import { runScheduledJobs } from "@/server/jobs";
+import { activeAnnouncements, listMyObligations, runScheduledJobs, syncUserTontines, unreadCount } from "@/server/pg/services";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Garde serveur : la page n'est jamais rendue sans session valide.
   const user = await requireUser();
   const ctx = ctxFor(user.id);
   // Phase frontend : rattrapage des tâches planifiées (verrou horaire, idempotent). En production : cron.
-  runScheduledJobs();
-  syncUserTontines(ctx);
-  const { toPay } = listMyObligations(ctx);
+  (await runScheduledJobs());
+  (await syncUserTontines(ctx));
+  const { toPay } = (await listMyObligations(ctx));
   return (
-    <AppShell user={{ fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl }} unread={unreadCount(ctx)} pendingPayments={toPay.filter((o) => o.canDeclare).length} banner={
+    <AppShell user={{ fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl }} unread={(await unreadCount(ctx))} pendingPayments={toPay.filter((o) => o.canDeclare).length} banner={
         <>
           {isDemoMode() && <DemoBanner />}
-          <AnnouncementBanner items={activeAnnouncements()} />
+          <AnnouncementBanner items={(await activeAnnouncements())} />
         </>
       }
     >

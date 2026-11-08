@@ -1,8 +1,9 @@
 # Déploiement sur Coolify — version de démonstration
 
 Objectif : mettre KOTI en ligne pour des **testeurs à distance**, avec les données fictives.
-Pas de base de données à ce stade : un seul service `app`, dont les données de démo sont gardées
-dans un volume (`demo-data`) et survivent aux redéploiements.
+Deux services : `app` (l'application) et `db` (PostgreSQL 16). Les données vivent dans le volume `pg-data` et
+survivent aux redéploiements. Au premier démarrage, les migrations sont appliquées et, la base étant vide, le jeu de
+démonstration est importé automatiquement (`KOTI_DEMO_MODE=1`).
 
 ## 1. Prérequis
 
@@ -31,7 +32,7 @@ Le HTTPS est **obligatoire** : les cookies de session sont marqués `Secure` en 
 
 ## 4. Variables d'environnement
 
-**Générée par Coolify, à ne pas toucher** : `SERVICE_HEX_64_CRONSECRET`. C'est le secret qui protège les routes
+**Générées par Coolify, à ne pas toucher** : `SERVICE_PASSWORD_POSTGRES` (mot de passe de la base) et `SERVICE_HEX_64_CRONSECRET`. C'est le secret qui protège les routes
 d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa valeur pour la section 6.
 
 **Déjà réglées par défaut dans `docker-compose.yml`** (modifiables dans l'onglet Environment Variables) :
@@ -40,6 +41,7 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
 |---|---|---|
 | `KOTI_DEMO_MODE` | `1` | Bandeau « Version de démonstration », page `/guide`, comptes de démo sur la connexion. |
 | `KOTI_ALLOW_DEMO_RESET` | `0` | Masque le bouton « Réinitialiser la démo » aux testeurs (sinon l'un d'eux pourrait effacer le travail des autres). |
+| `KOTI_AUTO_MIGRATE` | `1` | Applique les migrations de la base au démarrage (le serveur ne démarre pas si elles échouent). |
 | `TRUST_PROXY` | `1` | L'adresse IP réelle du visiteur est lue via le proxy de Coolify (limitation des tentatives de connexion). |
 
 ## 5. Déployer et vérifier
@@ -59,8 +61,8 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
   ```
   Toutes les sessions sont fermées : les testeurs devront se reconnecter.
 - **Mettre à jour** : `git push` sur `main` puis **Deploy** (ou activer le webhook). Les données de démo sont conservées.
-  Si une mise à jour change le format des données (`SCHEMA_VERSION`), elles sont régénérées automatiquement, sauf le passage 2 → 3 (tickets) qui **migre** les données existantes sans rien perdre et laisse une copie `koti-demo.json.v2.bak` dans le volume.
-- **Une seule instance** de `app` : les données vivent dans la mémoire du processus.
+  Les évolutions du schéma sont des migrations SQL (`drizzle/`), appliquées au démarrage sans perte de données.
+- **Plusieurs instances** de `app` sont possibles : les verrous et contraintes sont dans PostgreSQL.
 - Les dates du jeu de démo sont calculées le jour de sa création : pour une campagne longue, réinitialisez de temps en
   temps pour garder des échéances « à venir » réalistes.
 
@@ -82,12 +84,13 @@ passera sur le domaine de production.
 | La connexion « ne fait rien » / renvoie à la page de connexion | Site ouvert en `http://` : les cookies `Secure` exigent `https://`. |
 | `/guide` en 404 | `KOTI_DEMO_MODE` différent de `1`. |
 | Réinitialisation : `401` | Secret incorrect, ou `KOTI_DEMO_MODE` désactivé. |
-| Données perdues après suppression de la ressource | Le volume `demo-data` a été supprimé avec elle (sans gravité : le jeu de démo est recréé). |
+| Données perdues après suppression de la ressource | Le volume `pg-data` a été supprimé avec elle (sans gravité : au redémarrage, la base est vide et le jeu de démo est réimporté). |
+| `app` redémarre en boucle | La base n'est pas prête ou `DATABASE_URL` est incorrect : voir les Runtime Logs (message de migration). |
 
 ## 9. Ce que cette version n'est pas
 
-Une instance de **démonstration** : pas de base PostgreSQL, pas d'e-mails réels, comptes publics.
-Ne jamais y saisir de données réelles. La version de production arrivera avec la phase 2 (voir `SUIVI.md`).
+Une instance de **démonstration** : pas d'e-mails réels, comptes publics, authentification maison (Better Auth viendra).
+Ne jamais y saisir de données réelles. Voir `SUIVI.md` pour la suite de la phase 2.
 
 ## 10. Test local de l'image (optionnel)
 

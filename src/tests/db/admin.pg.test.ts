@@ -4,8 +4,6 @@ import { platformCan } from "@/lib/permissions/platform";
 import { runBilling } from "@/modules/billing/billing.service";
 import { addDays, todayISO } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
-import { migrateV5ToV6, migrateV6ToV7, migrateV7ToV8, migrateV8ToV9 } from "@/server/db/migrations";
-import { ensureDemoStaff } from "@/server/db/seed";
 import type { DbState } from "@/server/db/store";
 import * as pg from "@/server/pg/services";
 import { useConnection, type Connection } from "@/server/db/client";
@@ -196,43 +194,6 @@ describe("Espace admin — tontines et messages", () => {
     expect(m.every((x, i) => i === 0 || m[i - 1]!.createdAt >= x.createdAt)).toBe(true);
   });
 });
-
-describe("Comptes de l'équipe sur une base de démonstration existante", () => {
-  // Non applicable à PostgreSQL : concerne la mise à jour du fichier JSON simulé.
-  it.skip("sont ajoutés sans rien écraser, une seule fois, et sans toucher aux autres données", async () => {
-    const s = await snap((st) => structuredClone(st)) as DbState;
-    const staffIds = new Set(s.users.filter((u) => u.platformRole !== "USER").map((u) => u.id));
-    expect(staffIds.size).toBe(2);
-    // Base « ancienne » : sans l'équipe.
-    s.users = s.users.filter((u) => !staffIds.has(u.id));
-    s.userProfiles = s.userProfiles.filter((p) => !staffIds.has(p.userId));
-    s.credentials = s.credentials.filter((c) => !staffIds.has(c.userId));
-    s.subscriptions = s.subscriptions.filter((x) => !staffIds.has(x.userId));
-    const others = structuredClone(s.users);
-    expect(ensureDemoStaff(s)).toBe(true);
-    expect(s.users.filter((u) => u.platformRole === "SUPER_ADMIN").map((u) => u.email)).toEqual(["operateur@koti.demo"]);
-    expect(s.users.filter((u) => u.platformRole === "SUPPORT").map((u) => u.email)).toEqual(["support@koti.demo"]);
-    expect(s.credentials.length).toBe(s.users.length);
-    expect(s.users.slice(0, others.length)).toEqual(others);
-    expect(ensureDemoStaff(s)).toBe(false); // idempotent
-  });
-});
-
-describe("Migration v5 → v6", () => {
-  it("ajoute les notes internes sans toucher aux données existantes", async () => {
-    const v5 = await snap((s) => structuredClone(s)) as any;
-    delete v5.adminNotes;
-    v5.version = 5;
-    const snapshot = structuredClone(v5);
-    const out = migrateV5ToV6(v5) as any;
-    expect(v5).toEqual(snapshot);
-    expect(out.version).toBe(6);
-    expect(out.adminNotes).toEqual([]);
-    expect(out.users).toEqual(snapshot.users);
-    expect(out.subscriptions).toEqual(snapshot.subscriptions);
-  });
-});
-
 describe("Offres — réglage depuis l'administration", () => {
   beforeAll(async () => (demo = await resetWithDemo(conn)));
   const T = todayISO();
@@ -322,21 +283,6 @@ describe("Offres — réglage depuis l'administration", () => {
     expect((await pg.getPublicPlans()).find((p) => p.id === "PRO")!.monthlyPrice).toBe(7500);
   });
 });
-
-describe("Migration v6 → v7", () => {
-  it("ajoute les réglages d'offres sans toucher aux données existantes", async () => {
-    const v6 = await snap((s) => structuredClone(s)) as any;
-    delete v6.planSettings;
-    v6.version = 6;
-    const snapshot = structuredClone(v6);
-    const out = migrateV6ToV7(v6) as any;
-    expect(v6).toEqual(snapshot);
-    expect(out.version).toBe(7);
-    expect(out.planSettings).toEqual([]);
-    expect(out.subscriptions).toEqual(snapshot.subscriptions);
-  });
-});
-
 describe("Étape 4 — messages, annonces, journal d'audit", () => {
   const fresh = async () => await snap((s) => s.contactRequests.find((c) => c.status === "NEW")!.id);
 
@@ -398,16 +344,6 @@ describe("Étape 4 — messages, annonces, journal d'audit", () => {
     expect(byActor.rows.every((r) => r.actorName.length > 0)).toBe(true);
     await expect((async () => (await pg.listPlatformAudit(ctxFor(id("ahmed@koti.demo")))))()).rejects.toThrow(/introuvable/i);
   });
-
-  it("migration v7 → v8 : ajoute les annonces sans rien perdre", async () => {
-    const v7 = JSON.parse(JSON.stringify(await snap((s) => s))) as any;
-    v7.version = 7;
-    delete v7.announcements;
-    const out = migrateV7ToV8(v7);
-    expect(out.version).toBe(8);
-    expect(out.announcements).toEqual([]);
-    expect(out.users.length).toBe(v7.users.length);
-  });
 });
 
 describe("Équipe KOTI — collaborateurs et rôles", () => {
@@ -468,15 +404,6 @@ describe("Équipe KOTI — collaborateurs et rôles", () => {
     await expect((async () => (await pg.getPlatformOverview(ctxFor(sup))))()).rejects.toThrow(/introuvable/i);
     (await pg.setStaffStatus(admin(), { userId: sup, active: true, reason: "Retour" }));
     expect(await snap((s) => s.auditLogs.filter((a) => a.action.startsWith("admin.team.")).length)).toBeGreaterThan(5);
-  });
-
-  it("migration v8 → v9 : ajoute les invitations d'équipe", async () => {
-    const v8 = JSON.parse(JSON.stringify(await snap((s) => s))) as any;
-    v8.version = 8;
-    delete v8.staffInvitations;
-    const out = migrateV8ToV9(v8);
-    expect(out.version).toBe(9);
-    expect(out.staffInvitations).toEqual([]);
   });
 });
 

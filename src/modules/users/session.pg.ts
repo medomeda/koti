@@ -1,6 +1,7 @@
 import "server-only";
 import { and, eq, gt, lte, ne } from "drizzle-orm";
 import { getDb, type Db } from "@/server/db/client";
+import { ensureReady } from "@/server/db/ready";
 import { sessions, userProfiles, users } from "@/server/db/schema";
 import { newToken, sha256 } from "@/server/ids";
 
@@ -31,6 +32,7 @@ export async function createSessionRow(userId: string, now = new Date(), db: Db 
 /** L'utilisateur de la session, ou null : jeton inconnu, session expirée, compte suspendu. */
 export async function findSessionUser(token: string, now = new Date(), db: Db = getDb()): Promise<SessionUser | null> {
   if (!token || token.length > 100) return null;
+  await ensureReady();
   const [row] = await db
     .select({ u: users, p: userProfiles })
     .from(sessions)

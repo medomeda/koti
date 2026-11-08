@@ -1,11 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- formes JSON héritées (v4) manipulées volontairement sans typage */
+ 
 import { beforeEach, describe, expect, it } from "vitest";
 import { addDays, todayISO } from "@/lib/utils/dates";
-import { PLANS } from "@/lib/marketing/plans";
 import { addMonths, runBilling } from "@/modules/billing/billing.service";
 import { assertMemberCapacity, assertTicketCapacity } from "@/modules/billing/quota";
 import { ctxFor } from "@/server/context";
-import { migrateV4ToV5 } from "@/server/db/migrations";
 import type { DbState } from "@/server/db/store";
 import * as pg from "@/server/pg/services";
 import { afterAll, beforeAll } from "vitest";
@@ -167,38 +165,6 @@ describe("Compte suspendu", () => {
     expect((await pg.authenticate("client1@exemple.ci", "mauvais"))).toBeNull();
   });
 });
-
-describe("Migration v4 → v5", () => {
-  it("attribue la plus petite offre qui couvre l'usage, sans modifier les données", async () => {
-    const v4 = await snap((s) => structuredClone(s)) as any;
-    delete v4.subscriptions;
-    delete v4.invoices;
-    for (const u of v4.users) {
-      delete u.platformRole;
-      delete u.status;
-    }
-    v4.version = 4;
-    const snapshot = structuredClone(v4);
-    const out = migrateV4ToV5(v4) as any;
-    expect(v4).toEqual(snapshot);
-    expect(out.version).toBe(5);
-    expect(out.invoices).toEqual([]);
-    expect(out.users.every((u: any) => u.platformRole === "USER" && u.status === "ACTIVE")).toBe(true);
-    const planOfUser = (email: string) => out.subscriptions.find((x: any) => x.userId === out.users.find((u: any) => u.email === email).id).planId;
-    expect(planOfUser("ahmed@koti.demo")).toBe("PRO"); // 3 tontines dont une à tickets multiples
-    expect(planOfUser("yao@koti.demo")).toBe("FREE");
-    expect(out.subscriptions).toHaveLength(out.users.length);
-    // Hors ajouts (rôle, statut, abonnements), les données sont strictement identiques.
-    for (const k of ["tontines", "tontineMembers", "tontineTickets", "contributionObligations", "payments", "rotationSlots", "auditLogs"]) expect(out[k]).toEqual(snapshot[k]);
-    // Aucun utilisateur n'est bloqué : son offre couvre son usage actuel.
-    for (const sub of out.subscriptions) {
-      const plan = PLANS.find((p) => p.id === sub.planId)!;
-      const owned = out.tontines.filter((t: any) => t.creatorId === sub.userId && ["DRAFT", "ACTIVE", "PAUSED"].includes(t.status));
-      expect(owned.length).toBeLessThanOrEqual(plan.limits.tontines);
-    }
-  });
-});
-
 describe("Quotas — parcours existants non régressés", () => {
   it("un membre invité garde son parcours : accepter une invitation ne dépend pas de son offre", async () => {
     const ahmed = userId("ahmed@koti.demo");

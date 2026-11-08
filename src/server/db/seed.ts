@@ -14,8 +14,7 @@ import { runScheduledJobs } from "@/server/jobs";
 import type { Ctx } from "@/server/context";
 import type { PaymentMethod } from "@/types/domain";
 import { seedPlatformActivity, seedPlatformStructure, type PlatformSeedResult } from "./seed-platform";
-import { registerAfterLoad, registerSeeder, type DbState } from "./store";
-import { isDemoMode } from "@/lib/demo";
+import type { DbState } from "./store";
 
 /**
  * Jeu de démonstration. Il est construit en REJOUANT les vraies opérations métier
@@ -243,39 +242,3 @@ export function seedDemo(s: DbState) {
   // Quelques notifications déjà lues pour un rendu réaliste.
   for (const n of s.notifications) if (n.createdAt < at(addDays(T, -7)).toISOString()) n.readAt = n.createdAt;
 }
-
-/**
- * Comptes de l'équipe KOTI pour une base de démonstration DÉJÀ existante (créée avant l'espace d'administration) :
- * ils sont ajoutés à la relecture du fichier, sans toucher aux autres données. Idempotent, démo uniquement.
- */
-export function ensureDemoStaff(s: DbState): boolean {
-  if (!isDemoMode()) return false;
-  let changed = false;
-  const staff = [
-    { email: "operateur@koti.demo", fullName: "Équipe KOTI", phone: "+2250700000000", role: "SUPER_ADMIN" as const },
-    { email: "support@koti.demo", fullName: "Support KOTI", phone: "+2250700000001", role: "SUPPORT" as const },
-  ];
-  let hash: string | null = null;
-  for (const m of staff) {
-    const existing = s.users.find((u) => u.email === m.email);
-    if (existing) {
-      // Le rôle ne doit jamais être perdu ; le statut n'est pas modifié (un compte suspendu volontairement le reste).
-      if (existing.platformRole !== m.role) {
-        existing.platformRole = m.role;
-        changed = true;
-      }
-      continue;
-    }
-    if (s.userProfiles.some((p) => p.phone === m.phone)) continue;
-    hash ??= hashPassword(DEMO_PASSWORD);
-    const id = registerUser(s, { fullName: m.fullName, email: m.email, phone: m.phone, password: "", passwordHash: hash, now: new Date() });
-    const u = s.users.find((x) => x.id === id)!;
-    u.platformRole = m.role;
-    u.emailVerified = true;
-    changed = true;
-  }
-  return changed;
-}
-
-registerSeeder(seedDemo);
-registerAfterLoad(ensureDemoStaff);

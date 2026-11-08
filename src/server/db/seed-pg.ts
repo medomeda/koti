@@ -1,6 +1,6 @@
 import "server-only";
 import { runOnState, emptyState, type DbState } from "./store";
-import { seedDemo, ensureDemoStaff } from "./seed";
+import { seedDemo } from "./seed";
 
 /**
  * Jeu de démonstration en mémoire (mêmes données que la démo simulée) : les vraies opérations métier sont rejouées
@@ -8,9 +8,6 @@ import { seedDemo, ensureDemoStaff } from "./seed";
  */
 export function buildDemoState(): DbState {
   const s = emptyState();
-  runOnState(s, () => {
-    seedDemo(s);
-    ensureDemoStaff(s);
-  });
+  runOnState(s, () => seedDemo(s));
   return s;
 }

@@ -10,8 +10,8 @@ import { PLAN_TONE } from "@/lib/constants/admin-labels";
 import { platformCan } from "@/lib/permissions/platform";
 import { formatDateTime } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
-import { listPlansAdmin, platformRoleOf } from "@/modules/admin/admin.service";
 import { ctxFor } from "@/server/context";
+import { listPlansAdmin, platformRoleOf } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Offres" };
 
@@ -25,8 +25,8 @@ function show(k: string, v: unknown) {
 
 export default async function AdminPlansPage() {
   const user = await requireUser("/admin/offres");
-  const role = platformRoleOf(user.id);
-  const { plans, history } = guard(() => listPlansAdmin(ctxFor(user.id)));
+  const role = (await platformRoleOf(user.id));
+  const { plans, history } = (await guard(async () => (await listPlansAdmin(ctxFor(user.id)))));
   const canEdit = platformCan(role, "plan.edit");
   return (
     <>

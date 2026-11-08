@@ -10,10 +10,9 @@ import { requireUser } from "@/lib/auth/session";
 import { TOPIC_LABEL } from "@/lib/constants/admin-labels";
 import { cn } from "@/lib/utils/cn";
 import { formatDateTime } from "@/lib/utils/dates";
-import { platformRoleOf } from "@/modules/admin/admin.service";
-import { listContactRequestsDetailed } from "@/modules/admin/support.service";
 import { platformCan } from "@/lib/permissions/platform";
 import { ctxFor } from "@/server/context";
+import { listContactRequestsDetailed, platformRoleOf } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Messages" };
 
@@ -28,10 +27,10 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
   const status = raw === "NEW" || raw === "HANDLED" ? raw : undefined;
   const user = await requireUser("/admin/messages");
   const ctx = ctxFor(user.id);
-  const all = guard(() => listContactRequestsDetailed(ctx));
+  const all = (await guard(async () => (await listContactRequestsDetailed(ctx))));
   const messages = status ? all.filter((m) => m.status === status) : all;
   const fresh = all.filter((m) => m.status === "NEW").length;
-  const canHandle = platformCan(platformRoleOf(user.id), "message.handle");
+  const canHandle = platformCan((await platformRoleOf(user.id)), "message.handle");
   return (
     <>
       <PageHeader title="Messages" description={`Reçus par le formulaire de contact du site : ${fresh} à traiter sur ${all.length}. Répondez au visiteur par e-mail ou téléphone, puis notez la réponse ici.`} />

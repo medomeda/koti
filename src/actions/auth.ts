@@ -4,10 +4,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { forgotPasswordSchema, loginSchema, registerSchema } from "@/lib/validations";
-import { platformRoleOf } from "@/modules/admin/admin.service";
-import { authenticate, signUp } from "@/modules/users/user.service";
 import { AppError } from "@/server/errors";
 import { failureLimiter, fieldErrorsOf, rateLimit, safeNext, type ActionResult } from "./_shared";
+import { authenticate, platformRoleOf, signUp } from "@/server/pg/services";
 
 /**
  * IP client, uniquement derrière UN proxy de confiance (TRUST_PROXY=1, ex. Traefik de Coolify).
@@ -30,7 +29,7 @@ export async function loginAction(raw: unknown, next?: string): Promise<ActionRe
   if (byEmail.blocked() || byIp?.blocked()) return { ok: false, error: "Trop de tentatives échouées. Patientez quelques minutes avant de réessayer." };
   let userId: string | null;
   try {
-    userId = authenticate(email, password);
+    userId = (await authenticate(email, password));
   } catch (err) {
     // Compte suspendu : le mot de passe est correct, le message l'explique.
     if (err instanceof AppError) return { ok: false, error: err.message };
@@ -46,7 +45,7 @@ export async function loginAction(raw: unknown, next?: string): Promise<ActionRe
   await createSession(userId);
   // Membre de l'équipe KOTI sans destination précise : directement l'espace d'administration.
   const target = safeNext(next);
-  redirect(target === "/" && platformRoleOf(userId) ? "/admin" : target);
+  redirect(target === "/" && (await platformRoleOf(userId)) ? "/admin" : target);
 }
 
 export async function registerAction(raw: unknown, next?: string): Promise<ActionResult> {
@@ -55,7 +54,7 @@ export async function registerAction(raw: unknown, next?: string): Promise<Actio
   if (!rateLimit(`register:${(await clientKey()) ?? "global"}`, 50, 60 * 60_000)) return { ok: false, error: "Trop d'inscriptions depuis cet appareil. Réessayez plus tard." };
   let userId: string;
   try {
-    userId = signUp(parsed.data);
+    userId = (await signUp(parsed.data));
   } catch (err) {
     if (err instanceof AppError) return { ok: false, error: err.message, fieldErrors: err.fieldErrors };
     throw err;
