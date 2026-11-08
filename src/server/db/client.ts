@@ -38,6 +38,11 @@ export function getDb(): Db {
   return g.__kotiPg.db;
 }
 
+/** Tests d'intégration : fait de cette connexion la connexion par défaut du processus (sans toucher à DATABASE_URL). */
+export function useConnection(conn: Connection | null): void {
+  g.__kotiPg = conn ?? undefined;
+}
+
 const RETRYABLE = new Set(["40001" /* échec de sérialisation */, "40P01" /* interblocage */]);
 const sqlState = (err: unknown): string | undefined => {
   // Drizzle enveloppe l'erreur du pilote : le code SQLSTATE peut être sur l'erreur ou sur sa cause.

@@ -102,7 +102,14 @@ Les écrans, les Server Actions, les schémas Zod, les permissions et les tests 
 tontines, tickets…) : les basculer un par un obligerait à maintenir deux sources de vérité. La pile PostgreSQL est donc
 construite **en parallèle** — fichiers `*.pg.ts` à côté des services actuels, asynchrones, testés sur la base `koti_test` —
 pendant que l'application tourne sur le simulé. Quand tous les modules existent, l'interface est basculée en une fois
-(actions, pages, session), les fichiers `*.pg.ts` prennent la place des anciens et le magasin simulé est supprimé.
+(actions, pages, session) et le magasin simulé est supprimé.
+
+**Évolution (08/11/2026) : unité de travail.** Réécrire chaque service en SQL aurait doublé la logique métier. À la place,
+`server/db/uow/` charge le périmètre nécessaire (tontine, utilisateur, plateforme), exécute le service existant dessus
+(`runOnState`, qui redirige `read()`/`tx()`), puis écrit la différence dans la même transaction, avec verrous
+`FOR UPDATE` sur les tontines et utilisateurs visés. `server/pg/services.ts` en est la façade asynchrone. Les comptes et
+sessions, eux, ont une version SQL directe (`user.pg.ts`, `session.pg.ts`). Les requêtes d'agrégat SQL remplaceront le
+chargement global des écrans d'administration avant tout volume réel.
 
 ## 6. Relecture sécurité
 

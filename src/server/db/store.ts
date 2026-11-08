@@ -210,8 +210,24 @@ function persist(state: DbState) {
 
 /** Lecture seule. Ne jamais muter l'objet renvoyé. */
 export function read<T>(fn: (state: Readonly<DbState>) => T): T {
-  return fn(load());
+  return fn(overrideState ?? load());
 }
+
+/**
+ * Exécute du code métier synchrone sur un état fourni (chargé depuis PostgreSQL par l'unité de travail) :
+ * pendant l'appel, `read()` et `tx()` travaillent sur cet état au lieu du magasin simulé.
+ * Sûr parce que le code appelé est synchrone : rien ne peut s'intercaler (pas de partage entre requêtes).
+ */
+export function runOnState<T>(state: DbState, fn: () => T): T {
+  if (overrideState) throw new Error("runOnState ne peut pas être imbriqué.");
+  overrideState = state;
+  try {
+    return fn();
+  } finally {
+    overrideState = null;
+  }
+}
+let overrideState: DbState | null = null;
 
 /**
  * Transaction : travaille sur une copie, ne publie l'état qu'en cas de succès.
@@ -219,6 +235,7 @@ export function read<T>(fn: (state: Readonly<DbState>) => T): T {
  * Node exécute ce code de manière synchrone : aucune autre requête ne s'intercale.
  */
 export function tx<T>(fn: (state: DbState) => T): T {
+  if (overrideState) return fn(overrideState); // l'unité de travail PostgreSQL gère transaction, verrous et écriture
   const current = load();
   if (holder.seeding) return fn(current);
   const draft = structuredClone(current);
