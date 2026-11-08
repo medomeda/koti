@@ -8,7 +8,7 @@ import { NativeSelect } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { PLAN_TONE } from "@/lib/constants/admin-labels";
 import { formatDate } from "@/lib/utils/dates";
 import { formatFCFA } from "@/lib/utils/money";
@@ -23,7 +23,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function AdminSubscriptionsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const user = await requireUser("/admin/abonnements");
+  const user = await requireStaff("/admin/abonnements");
   const plan = ["FREE", "PRO", "ASSOCIATION"].includes(one(sp.plan) ?? "") ? (one(sp.plan) as PlanId) : undefined;
   const status = one(sp.status) === "TRIAL" ? "TRIAL" : one(sp.status) === "ACTIVE" ? "ACTIVE" : undefined;
   const data = (await guard(async () => (await listPlatformSubscriptions(ctxFor(user.id), { plan, status, page: Number(one(sp.page)) || 1 }))));

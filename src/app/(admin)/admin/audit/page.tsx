@@ -8,7 +8,7 @@ import { NativeSelect } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { ACTION_LABEL, describeChange } from "@/lib/constants/admin-labels";
 import { formatDateTime } from "@/lib/utils/dates";
 import { AUDIT_CATEGORIES, type AuditCategory } from "@/modules/admin/support.service";
@@ -22,7 +22,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function AdminAuditPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const user = await requireUser("/admin/audit");
+  const user = await requireStaff("/admin/audit");
   const category = (Object.keys(AUDIT_CATEGORIES) as AuditCategory[]).find((k) => k === one(sp.category));
   const actorId = one(sp.actor) || undefined;
   const data = (await guard(async () => (await listPlatformAudit(ctxFor(user.id), { category, actorId, page: Number(one(sp.page)) || 1 }))));

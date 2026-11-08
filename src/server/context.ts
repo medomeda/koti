@@ -1,6 +1,6 @@
 import "server-only";
 import { can, type Permission } from "@/lib/permissions";
-import { platformCan, type PlatformPermission } from "@/lib/permissions/platform";
+import { isBarredFromClientSpace, platformCan, type PlatformPermission } from "@/lib/permissions/platform";
 import { todayISO } from "@/lib/utils/dates";
 import type { DbState } from "@/server/db/store";
 import { forbidden, notFound } from "@/server/errors";
@@ -53,4 +53,14 @@ export function requirePlatform(s: Readonly<DbState>, ctx: Ctx, permission: Plat
   if (!user || user.status !== "ACTIVE" || !platformCan(user.platformRole, "admin.view")) throw notFound();
   if (!platformCan(user.platformRole, permission)) throw forbidden();
   return user;
+}
+
+/**
+ * Garde de l'espace client : un compte de l'équipe KOTI ne crée pas de tontine, n'accepte pas d'invitation et ne
+ * gère pas d'abonnement personnel (voir `staffMayUseClientSpace`). Le contrôle des écrans ne suffit pas : il est ici,
+ * dans les services, pour résister à un appel direct.
+ */
+export function assertClientAccount(s: Readonly<DbState>, userId: string): void {
+  const user = s.users.find((u) => u.id === userId);
+  if (user && isBarredFromClientSpace(user.platformRole)) throw forbidden("Les comptes de l'équipe KOTI n'ont pas d'espace client. Utilisez un compte client.");
 }

@@ -4,7 +4,7 @@ import { Globe, CreditCard, UserCog, LayoutDashboard, LogOut, Mail, Megaphone, S
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { logoutAction } from "@/actions/auth";
+import { adminLogoutAction } from "@/actions/auth";
 import { Brand } from "@/components/layout/brand";
 import { clearAppCaches } from "@/components/pwa/pwa-store";
 import { Avatar, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/misc";
@@ -71,11 +71,16 @@ export function AdminShell({ user, role, newMessages, banner, children }: { user
               <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
+                <Link href="/admin/compte">
+                  <UserCog /> Mon compte
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/bienvenue">
                   <Globe /> Voir le site public
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem destructive onSelect={() => void clearAppCaches().then(() => logoutAction())}>
+              <DropdownMenuItem destructive onSelect={() => void clearAppCaches().then(() => adminLogoutAction())}>
                 <LogOut /> Se déconnecter
               </DropdownMenuItem>
             </DropdownMenuContent>

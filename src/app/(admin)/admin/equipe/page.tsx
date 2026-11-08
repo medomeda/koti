@@ -7,7 +7,7 @@ import { EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ROLE_LABEL } from "@/lib/constants/admin-labels";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { platformCan } from "@/lib/permissions/platform";
 import { formatDate } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
@@ -16,7 +16,7 @@ import { listTeam, platformRoleOf } from "@/server/pg/services";
 export const metadata: Metadata = { title: "Équipe" };
 
 export default async function AdminTeamPage() {
-  const user = await requireUser("/admin/equipe");
+  const user = await requireStaff("/admin/equipe");
   const team = (await guard(async () => (await listTeam(ctxFor(user.id)))));
   const canManage = platformCan((await platformRoleOf(user.id)), "team.manage");
   return (

@@ -9,7 +9,7 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { PLAN_TONE } from "@/lib/constants/admin-labels";
 import { formatDate } from "@/lib/utils/dates";
 import { type ClientFilters } from "@/modules/admin/admin.service";
@@ -30,7 +30,7 @@ function StatusBadge({ accountStatus, subscriptionStatus }: { accountStatus: str
 
 export default async function AdminClientsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const user = await requireUser("/admin/clients");
+  const user = await requireStaff("/admin/clients");
   const filters: ClientFilters = {
     q: one(sp.q)?.slice(0, 80),
     plan: ["FREE", "PRO", "ASSOCIATION"].includes(one(sp.plan) ?? "") ? (one(sp.plan) as PlanId) : undefined,

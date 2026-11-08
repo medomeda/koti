@@ -9,7 +9,7 @@ import { Alert, DescriptionList, EmptyState, PageHeader } from "@/components/ui/
 import { Avatar } from "@/components/ui/misc";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { HEALTH, PLAN_TONE } from "@/lib/constants/admin-labels";
 import { FREQUENCY_UNIT } from "@/lib/constants/labels";
 import { platformCan } from "@/lib/permissions/platform";
@@ -22,7 +22,7 @@ export const metadata: Metadata = { title: "Fiche client" };
 
 export default async function AdminClientPage({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
-  const me = await requireUser(`/admin/clients/${userId}`);
+  const me = await requireStaff(`/admin/clients/${userId}`);
   const role = (await platformRoleOf(me.id));
   const c = (await guard(async () => (await getClient(ctxFor(me.id), userId))));
   const sub = c.subscription;

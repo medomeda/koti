@@ -27,6 +27,8 @@ export interface Scope {
   users?: string[];
   /** Personnes dont on a seulement besoin du compte et du profil (auteur de l'action) : ni leurs tontines, ni verrou. */
   people?: string[];
+  /** Comptes existants correspondant à ces e-mails / numéros (invitation : l'invité est-il déjà inscrit, déjà membre, membre de l'équipe ?). */
+  lookup?: { emails?: Array<string | null>; phones?: Array<string | null> };
   /** Équipe KOTI : invitations d'équipe et comptes de l'équipe (aperçu public d'un lien d'invitation, acceptation). */
   staff?: boolean;
   /** Tout charger (administration de la plateforme, tests). */
@@ -80,6 +82,12 @@ export async function load(ex: Executor, scope: Scope): Promise<DbState> {
   }
 
   const userIds = new Set([...(scope.users ?? []), ...(scope.people ?? [])]);
+  if (scope.lookup) {
+    const emails = (scope.lookup.emails ?? []).filter((e): e is string => !!e).map((e) => e.toLowerCase());
+    const phones = (scope.lookup.phones ?? []).filter((p): p is string => !!p);
+    if (emails.length) for (const u of await select(ex, "users", inArray(sql`lower(${col("users", "email")})`, emails))) userIds.add(u.id as string);
+    if (phones.length) for (const p of await select(ex, "userProfiles", inArray(col("userProfiles", "phone"), phones))) userIds.add(p.userId as string);
+  }
   const ecosystem = scope.users ?? [];
   const tontineIds = new Set(scope.tontines ?? []);
 

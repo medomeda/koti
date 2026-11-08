@@ -2,7 +2,7 @@ import "server-only";
 import type { Plan } from "@/lib/marketing/plans";
 import { addDays, parseISODate, toISODate, todayISO } from "@/lib/utils/dates";
 import { audit } from "@/modules/audit/audit.service";
-import { isoNow, today, type Ctx } from "@/server/context";
+import { assertClientAccount, isoNow, today, type Ctx } from "@/server/context";
 import { read, tx, type DbState } from "@/server/db/store";
 import { AppError, conflict } from "@/server/errors";
 import { newId } from "@/server/ids";
@@ -61,7 +61,10 @@ function invoiceFor(s: DbState, sub: Subscription, plan: Plan, periodStart: ISOD
  * - retour au gratuit : effectif tout de suite, les factures déjà émises sont conservées.
  */
 export function changePlan(ctx: Ctx, planId: PlanId) {
-  tx((s) => applyPlanChange(s, ctx, ctx.userId, planId, "subscription.change"));
+  tx((s) => {
+    assertClientAccount(s, ctx.userId);
+    applyPlanChange(s, ctx, ctx.userId, planId, "subscription.change");
+  });
 }
 
 /**

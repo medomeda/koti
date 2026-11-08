@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, DescriptionList, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { PLAN_TONE } from "@/lib/constants/admin-labels";
 import { platformCan } from "@/lib/permissions/platform";
 import { formatDateTime } from "@/lib/utils/dates";
@@ -24,7 +24,7 @@ function show(k: string, v: unknown) {
 }
 
 export default async function AdminPlansPage() {
-  const user = await requireUser("/admin/offres");
+  const user = await requireStaff("/admin/offres");
   const role = (await platformRoleOf(user.id));
   const { plans, history } = (await guard(async () => (await listPlansAdmin(ctxFor(user.id)))));
   const canEdit = platformCan(role, "plan.edit");

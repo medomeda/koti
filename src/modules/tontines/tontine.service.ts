@@ -7,7 +7,7 @@ import { activeTickets, cycleLength, memberActiveTickets } from "@/modules/ticke
 import { issueTicket } from "@/modules/tickets/ticket.service";
 import type { TontineFormValues } from "@/lib/validations";
 import { sumAmounts } from "@/lib/utils/money";
-import { isoNow, requireAccess, today, type Ctx } from "@/server/context";
+import { assertClientAccount, isoNow, requireAccess, today, type Ctx } from "@/server/context";
 import { read, tx, type DbState } from "@/server/db/store";
 import { AppError, invalidState } from "@/server/errors";
 import { newId } from "@/server/ids";
@@ -28,6 +28,7 @@ function ticketPolicyOf(v: { multipleTicketsAllowed?: boolean; maxTicketsPerMemb
 /** Création (PRD §6.8) : tontine + adhésion ADMIN acceptée + 1er tour, dans une seule transaction. */
 export function createTontine(ctx: Ctx, v: TontineFormValues): string {
   return tx((s) => {
+    assertClientAccount(s, ctx.userId);
     // Quotas de l'offre : nombre de tontines, taille, tickets multiples.
     assertCanCreateTontine(s, ctx.userId);
     assertSettingsFit(s, ctx.userId, { expectedMemberCount: v.expectedMemberCount, multipleTicketsAllowed: ticketPolicyOf(v).multipleTicketsAllowed });

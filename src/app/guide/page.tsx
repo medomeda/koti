@@ -62,7 +62,7 @@ const SCENARIOS: Array<{ title: string; as: string; steps: string[] }> = [
     title: "Piloter la plateforme",
     as: "Équipe KOTI (super-admin)",
     steps: [
-      "Connectez-vous avec operateur@koti.demo : vous arrivez dans l'administration. Parcourez le tableau de bord (inscriptions, revenu, entonnoir, alertes).",
+      "Ouvrez la connexion de l'administration (/admin/login, lien « Équipe KOTI ? » sur la page de connexion) avec operateur@koti.demo : vous arrivez dans l'administration. Un compte d'équipe n'a pas d'espace client : pour voir l'application comme un client, utilisez un compte client. Parcourez le tableau de bord (inscriptions, revenu, entonnoir, alertes).",
       "Clients : recherchez, filtrez par offre ou statut, ouvrez une fiche. Essayez « Ajouter une note », « Offrir un essai », puis « Suspendre le compte » sur un client.",
       "Reconnectez-vous en support@koti.demo : vous consultez et annotez, mais les actions sensibles ne sont pas proposées.",
       "Offres : modifiez le prix ou une limite de l'offre Organisateur. L'aperçu indique combien de clients dépasseraient les nouvelles limites ; le site (/tarifs) est mis à jour tout de suite.",

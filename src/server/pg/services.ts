@@ -76,7 +76,7 @@ export const listRotation = reads(rotations.listRotation, (ctx, id) => onTontine
 export const reorderRotation = writes(rotations.reorderRotation, (ctx, i) => onTontine(ctx, i.tontineId));
 
 /* ------------------------------------------------------------------ Invitations */
-export const createInvitation = writes(invitations.createInvitation, (ctx, i) => onTontine(ctx, i.tontineId));
+export const createInvitation = writes(invitations.createInvitation, (ctx, i) => ({ ...onTontine(ctx, i.tontineId), lookup: { emails: [i.email], phones: [i.phone] } }));
 export const cancelInvitation = writes(invitations.cancelInvitation, (ctx, i) => onTontine(ctx, i.tontineId));
 export const listTontineInvitations = reads(invitations.listTontineInvitations, (ctx, id) => onTontine(ctx, id));
 export const listMyInvitations = reads(invitations.listMyInvitations, (ctx) => ({ users: [ctx.userId], invited: true }));

@@ -1,6 +1,7 @@
 import "server-only";
 import type { z } from "zod";
 import { getSession, type SessionUser } from "@/lib/auth/session";
+import { isBarredFromClientSpace } from "@/lib/permissions/platform";
 import { ctxFor, type Ctx } from "@/server/context";
 import { AppError } from "@/server/errors";
 
@@ -30,9 +31,11 @@ function toFailure(err: unknown): ActionResult<never> {
  * 1. session obligatoire ; 2. validation Zod de l'entrée (jamais de confiance dans le client) ;
  * 3. le service applique permissions + transaction ; 4. résultat typé, erreurs normalisées.
  */
-export async function authed<S extends z.ZodType, T>(schema: S, raw: unknown, run: (input: z.output<S>, ctx: Ctx, user: SessionUser) => T | Promise<T>): Promise<ActionResult<Awaited<T>>> {
+export async function authed<S extends z.ZodType, T>(schema: S, raw: unknown, run: (input: z.output<S>, ctx: Ctx, user: SessionUser) => T | Promise<T>, options: { allowStaff?: boolean } = {}): Promise<ActionResult<Awaited<T>>> {
   const user = await getSession();
   if (!user) return { ok: false, error: "Votre session a expiré. Reconnectez-vous." };
+  // Les actions de l'espace client sont refusées aux comptes de l'équipe KOTI (voir `staffMayUseClientSpace`).
+  if (!options.allowStaff && isBarredFromClientSpace(user.platformRole)) return { ok: false, error: "Les comptes de l'équipe KOTI n'ont pas d'espace client. Utilisez un compte client." };
   const parsed = schema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Certains champs sont invalides.", fieldErrors: fieldErrorsOf(parsed.error) };
   try {

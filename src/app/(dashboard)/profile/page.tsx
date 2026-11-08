@@ -13,7 +13,7 @@ import { requireUser } from "@/lib/auth/session";
 import { allowDemoReset } from "@/lib/demo";
 import { formatDate } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
-import { getAccount, platformRoleOf } from "@/server/pg/services";
+import { getAccount } from "@/server/pg/services";
 import { getProfileStats } from "@/server/pg/services";
 
 export const metadata: Metadata = { title: "Profil" };
@@ -23,7 +23,6 @@ export default async function ProfilePage() {
   const stats = (await getProfileStats(ctxFor(user.id)));
   const allowReset = allowDemoReset();
   const account = (await getAccount(ctxFor(user.id)));
-  const staffRole = (await platformRoleOf(user.id));
   const push = await getPushState(user.id);
   return (
     <>
@@ -56,22 +55,7 @@ export default async function ProfilePage() {
               <ProfileForm defaults={{ fullName: user.fullName, phone: user.phone }} email={user.email} />
             </CardContent>
           </Card>
-          {staffRole && (
-            <Card className="border-primary/30">
-              <CardHeader>
-                <div>
-                  <CardTitle>Équipe KOTI</CardTitle>
-                  <CardDescription>Vous avez accès à l&apos;administration de la plateforme ({staffRole === "SUPER_ADMIN" ? "super-admin" : "support"}).</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <Link href="/admin">Ouvrir l&apos;administration</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-          <Card>
+                    <Card>
             <CardHeader>
               <div>
                 <CardTitle>Abonnement</CardTitle>

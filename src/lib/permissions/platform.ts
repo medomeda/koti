@@ -27,3 +27,20 @@ export function platformCan(role: PlatformRole | null | undefined, permission: P
 }
 
 export const isStaff = (role: PlatformRole | null | undefined) => role === "SUPPORT" || role === "SUPER_ADMIN";
+
+/**
+ * Politique d'accès des comptes de l'équipe KOTI à l'ESPACE CLIENT (tontines, paiements, abonnement personnel).
+ * Décision du 08/11/2026 : **aucun** (option A) — un compte d'équipe n'a que l'administration ; pour voir l'application
+ * comme un client, on utilise un compte client distinct. Cette fonction est le point unique de la règle : elle est lue par
+ * la redirection de l'espace client, le bouton du site public et les gardes des services.
+ * Options gardées en réserve (changer ici suffit) :
+ *  - B : tous les rôles d'équipe gardent un espace client (`return true`) ;
+ *  - C : seul le SUPER_ADMIN le garde (`return role === "SUPER_ADMIN"`), pour les tests et démonstrations.
+ */
+export function staffMayUseClientSpace(role: PlatformRole | null | undefined): boolean {
+  void role;
+  return false;
+}
+
+/** Vrai si ce compte doit être tenu hors de l'espace client. */
+export const isBarredFromClientSpace = (role: PlatformRole | null | undefined) => isStaff(role) && !staffMayUseClientSpace(role);

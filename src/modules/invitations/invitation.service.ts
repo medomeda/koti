@@ -7,7 +7,7 @@ import { hasFreeSlot } from "@/modules/rotations/rotation.service";
 import { issueTicket } from "@/modules/tickets/ticket.service";
 import { FREQUENCY_UNIT } from "@/lib/constants/labels";
 import { formatFCFA } from "@/lib/utils/money";
-import { displayName, isoNow, requireAccess, type Ctx } from "@/server/context";
+import { assertClientAccount, displayName, isoNow, requireAccess, type Ctx } from "@/server/context";
 import { read, tx, type DbState } from "@/server/db/store";
 import { AppError, conflict, invalidState, notFound } from "@/server/errors";
 import { newId, newToken, sha256 } from "@/server/ids";
@@ -47,6 +47,7 @@ export function createInvitation(ctx: Ctx, input: { tontineId: string; email: st
     if (!hasFreeSlot(s, ctx, tontine)) throw invalidState("Tous les tours du cycle sont attribués : aucune place n'est disponible pour un nouveau membre.");
     assertMemberCapacity(s, tontine);
     const existingUser = findUserByContact(s, input.email, input.phone);
+    if (existingUser && existingUser.platformRole !== "USER") throw conflict("Cette adresse appartient à l'équipe KOTI : invitez une autre personne.");
     if (existingUser && s.tontineMembers.some((m) => m.tontineId === tontine.id && m.userId === existingUser.id && m.status === "ACTIVE")) {
       throw conflict("Cette personne est déjà membre de la tontine.");
     }
@@ -173,6 +174,7 @@ function locate(s: DbState, ref: RespondRef) {
 /** Acceptation (PRD §6.14) : 8 étapes, dans une seule transaction. */
 export function acceptInvitation(ctx: Ctx, ref: RespondRef): string {
   return tx((s) => {
+    assertClientAccount(s, ctx.userId);
     const inv = locate(s, ref);
     if (!inv) throw notFound("Invitation introuvable ou lien invalide.");
     if (!contactMatches(s, inv, ctx.userId, "token" in ref)) throw new AppError("FORBIDDEN", "Cette invitation est destinée à un autre contact. Connectez-vous avec le compte correspondant.");

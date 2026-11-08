@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm, type FieldValues, type Path, type UseFormSetError } from "react-hook-form";
 import type { z } from "zod";
-import { forgotPasswordAction, loginAction, registerAction, resetPasswordAction } from "@/actions/auth";
+import { adminLoginAction, forgotPasswordAction, loginAction, registerAction, resetPasswordAction } from "@/actions/auth";
 import type { ActionResult } from "@/actions/_shared";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
@@ -49,17 +49,18 @@ function PasswordInput(props: React.ComponentProps<typeof Input>) {
 
 type DemoAccount = { email: string; fullName: string; hint: string };
 
-export function LoginForm({ next, demo }: { next?: string; demo?: { password: string; accounts: DemoAccount[] } }) {
+/** `admin` : connexion de l'administration (réservée à l'équipe KOTI), sans lien de création de compte. */
+export function LoginForm({ next, demo, admin }: { next?: string; demo?: { password: string; accounts: DemoAccount[] }; admin?: boolean }) {
   const [formError, setFormError] = useState<string | null>(null);
   const form = useForm<z.input<typeof loginSchema>>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } });
   const { register, handleSubmit, formState, setError, setValue } = form;
-  const onSubmit = handleSubmit((v) => submitTo(() => loginAction(v, next), setError, setFormError));
+  const onSubmit = handleSubmit((v) => submitTo(() => (admin ? adminLoginAction(v, next) : loginAction(v, next)), setError, setFormError));
 
   return (
     <div className="space-y-6">
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Adresse e-mail" error={formState.errors.email?.message}>
-          {(p) => <Input {...p} {...register("email")} type="email" autoComplete="email" inputMode="email" placeholder="vous@exemple.ci" />}
+          {(p) => <Input {...p} {...register("email")} type="email" autoComplete="email" inputMode="email" placeholder={admin ? "prenom.nom@koti.app" : "vous@exemple.ci"} />}
         </Field>
         <Field label="Mot de passe" error={formState.errors.password?.message}>
           {(p) => <PasswordInput {...p} {...register("password")} autoComplete="current-password" />}
@@ -71,7 +72,7 @@ export function LoginForm({ next, demo }: { next?: string; demo?: { password: st
         </div>
         <FormError message={formError} />
         <Button type="submit" className="w-full" size="lg" loading={formState.isSubmitting}>
-          Se connecter
+          {admin ? "Accéder à l'administration" : "Se connecter"}
         </Button>
       </form>
 

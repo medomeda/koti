@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/ui/feedback";
 import { ANNOUNCEMENT_TONES } from "@/lib/constants/admin-labels";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { platformCan } from "@/lib/permissions/platform";
 import { formatDate, formatDateTime } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
@@ -15,7 +15,7 @@ import { listAnnouncements, platformRoleOf } from "@/server/pg/services";
 export const metadata: Metadata = { title: "Annonces" };
 
 export default async function AdminAnnouncementsPage() {
-  const user = await requireUser("/admin/annonces");
+  const user = await requireStaff("/admin/annonces");
   const items = (await guard(async () => (await listAnnouncements(ctxFor(user.id)))));
   const canManage = platformCan((await platformRoleOf(user.id)), "announcement.manage");
   const live = items.filter((a) => a.live).length;

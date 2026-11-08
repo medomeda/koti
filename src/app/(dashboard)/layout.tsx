@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { isBarredFromClientSpace } from "@/lib/permissions/platform";
 import { AppShell } from "@/components/layout/app-shell";
 import { DemoBanner } from "@/components/layout/demo-banner";
 import { isDemoMode } from "@/lib/demo";
@@ -10,6 +12,8 @@ import { activeAnnouncements, listMyObligations, runScheduledJobs, syncUserTonti
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Garde serveur : la page n'est jamais rendue sans session valide.
   const user = await requireUser();
+  // Un compte de l'équipe KOTI n'a pas d'espace client : il est renvoyé vers l'administration.
+  if (isBarredFromClientSpace(user.platformRole)) redirect("/admin");
   const ctx = ctxFor(user.id);
   // Phase frontend : rattrapage des tâches planifiées (verrou horaire, idempotent). En production : cron.
   (await runScheduledJobs());

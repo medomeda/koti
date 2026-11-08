@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { APIError } from "better-auth/api";
 import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "@/lib/validations";
 import { AppError } from "@/server/errors";
-import { getAuth, requireEmailVerification } from "@/server/auth";
+import { getAuth, REALM_HEADER, requireEmailVerification } from "@/server/auth";
 import { mailIsConfigured } from "@/server/mail";
 import { failureLimiter, fieldErrorsOf, rateLimit, safeNext, type ActionResult } from "./_shared";
 import { platformRoleOf, signUp } from "@/server/pg/services";
@@ -22,9 +22,11 @@ async function clientKey(): Promise<string | null> {
 }
 
 /** Ouvre la session (cookie posé par Better Auth). Renvoie l'id du compte ou un message d'erreur destiné à l'utilisateur. */
-async function openSession(email: string, password: string): Promise<{ userId: string } | { error: string; invalidCredentials?: boolean; unverified?: boolean }> {
+async function openSession(email: string, password: string, realm: "client" | "admin" = "client"): Promise<{ userId: string } | { error: string; invalidCredentials?: boolean; unverified?: boolean }> {
   try {
-    const res = await getAuth().api.signInEmail({ body: { email, password }, headers: await headers() });
+    const h = new Headers(await headers());
+    h.set(REALM_HEADER, realm); // l'espace de connexion est décidé ici, jamais par le navigateur
+    const res = await getAuth().api.signInEmail({ body: { email, password }, headers: h });
     return { userId: res.user.id };
   } catch (err) {
     if (!(err instanceof APIError)) throw err;
@@ -56,6 +58,28 @@ export async function loginAction(raw: unknown, next?: string): Promise<ActionRe
   // Membre de l'équipe KOTI sans destination précise : directement l'espace d'administration.
   const target = safeNext(next);
   redirect(target === "/" && (await platformRoleOf(result.userId)) ? "/admin" : target);
+}
+
+/** Connexion à l'ADMINISTRATION : réservée aux comptes de l'équipe KOTI (un compte client reçoit le message générique). */
+export async function adminLoginAction(raw: unknown, next?: string): Promise<ActionResult> {
+  const parsed = loginSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "Certains champs sont invalides.", fieldErrors: fieldErrorsOf(parsed.error) };
+  const { email, password } = parsed.data;
+  const byEmail = failureLimiter(`admin-login:${email}`, 5, 15 * 60_000);
+  const ip = await clientKey();
+  const byIp = ip ? failureLimiter(`admin-login-ip:${ip}`, 20, 15 * 60_000) : null;
+  if (byEmail.blocked() || byIp?.blocked()) return { ok: false, error: "Trop de tentatives échouées. Patientez quelques minutes avant de réessayer." };
+  const result = await openSession(email, password, "admin");
+  if ("error" in result) {
+    if (result.invalidCredentials) {
+      byEmail.fail();
+      byIp?.fail();
+    }
+    return { ok: false, error: result.error };
+  }
+  byEmail.reset();
+  const target = safeNext(next, "/admin");
+  redirect(target.startsWith("/admin") ? target : "/admin");
 }
 
 export async function registerAction(raw: unknown, next?: string): Promise<ActionResult> {
@@ -106,4 +130,10 @@ export async function resetPasswordAction(raw: unknown): Promise<ActionResult> {
 export async function logoutAction() {
   await getAuth().api.signOut({ headers: await headers() }).catch(() => undefined);
   redirect("/login");
+}
+
+/** Déconnexion depuis l'administration : retour sur la page de connexion de l'administration. */
+export async function adminLogoutAction() {
+  await getAuth().api.signOut({ headers: await headers() }).catch(() => undefined);
+  redirect("/admin/login");
 }

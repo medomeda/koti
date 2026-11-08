@@ -5,6 +5,7 @@ import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { isBarredFromClientSpace, isStaff } from "@/lib/permissions/platform";
 import { getDb, type Db } from "@/server/db/client";
 import { accounts, sessions, users, verifications } from "@/server/db/schema";
 import { resetPasswordMail, verificationMail } from "@/server/mail/templates";
@@ -19,6 +20,8 @@ import { mailIsConfigured, sendMail } from "@/server/mail";
  *   connexion, sessions, vérification d'adresse et mot de passe oublié.
  * - Vérification d'adresse exigée seulement si KOTI_REQUIRE_EMAIL_VERIFICATION=1 (et un SMTP configuré).
  */
+/** En-tête interne qui indique l'espace de connexion (« admin » ou, par défaut, « client »). Posé uniquement par nos actions serveur. */
+export const REALM_HEADER = "x-koti-realm";
 export const SESSION_TTL_SECONDS = 7 * 24 * 3600;
 export const requireEmailVerification = () => process.env.KOTI_REQUIRE_EMAIL_VERIFICATION === "1" && mailIsConfigured();
 
@@ -60,10 +63,17 @@ export function createAuth(db: Db, options: { nextCookies?: boolean } = {}) {
     databaseHooks: {
       session: {
         create: {
-          // Compte suspendu : aucune session ne peut être ouverte, même avec le bon mot de passe.
-          before: async (session) => {
-            const [u] = await db.select({ status: users.status }).from(users).where(eq(users.id, session.userId));
+          before: async (session, context) => {
+            const [u] = await db.select({ status: users.status, role: users.platformRole }).from(users).where(eq(users.id, session.userId));
+            // Compte suspendu : aucune session ne peut être ouverte, même avec le bon mot de passe.
             if (u?.status === "SUSPENDED") throw new APIError("FORBIDDEN", { message: "Ce compte est suspendu. Contactez l'équipe KOTI pour en savoir plus." });
+            // Deux espaces, deux portes : à la CONNEXION, l'espace demandé (en-tête posé par nos actions serveur ; absent = client)
+            // doit correspondre au compte. Aucune session n'est créée dans le mauvais espace.
+            if (u && context?.path === "/sign-in/email") {
+              const realm = context.headers?.get(REALM_HEADER) === "admin" ? "admin" : "client";
+              if (realm === "admin" && !isStaff(u.role)) throw new APIError("UNAUTHORIZED", { message: "E-mail ou mot de passe incorrect." });
+              if (realm === "client" && isBarredFromClientSpace(u.role)) throw new APIError("FORBIDDEN", { message: "Ce compte appartient à l'équipe KOTI : connectez-vous depuis l'espace d'administration." });
+            }
           },
         },
       },

@@ -7,7 +7,10 @@ import { headers } from "next/headers";
 import { formatDate } from "@/lib/utils/dates";
 import { appUrl, mailIsConfigured, sendMail } from "@/server/mail";
 import { staffInvitationMail } from "@/server/mail/templates";
-import { authed } from "./_shared";
+import { authed as clientAuthed } from "./_shared";
+
+/** Toutes les actions de ce fichier sont destinées à l'équipe KOTI (le service revérifie rôle et permission). */
+const authed: typeof clientAuthed = (schema, raw, run) => clientAuthed(schema, raw, run, { allowStaff: true });
 import { acceptStaffInvitation, addClientNote, changeClientPlan, changeStaffRole, createAnnouncement, grantTrial, handleContactRequest, inviteStaff, previewPlanImpact, reactivateUser, reopenContactRequest, resetPlan, revokeStaffInvitation, setAnnouncementActive, setStaffStatus, suspendUser, updatePlan } from "@/server/pg/services";
 
 /**

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/ui/feedback";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { TOPIC_LABEL } from "@/lib/constants/admin-labels";
 import { cn } from "@/lib/utils/cn";
 import { formatDateTime } from "@/lib/utils/dates";
@@ -25,7 +25,7 @@ const FILTERS = [
 export default async function AdminMessagesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status: raw } = await searchParams;
   const status = raw === "NEW" || raw === "HANDLED" ? raw : undefined;
-  const user = await requireUser("/admin/messages");
+  const user = await requireStaff("/admin/messages");
   const ctx = ctxFor(user.id);
   const all = (await guard(async () => (await listContactRequestsDetailed(ctx))));
   const messages = status ? all.filter((m) => m.status === status) : all;

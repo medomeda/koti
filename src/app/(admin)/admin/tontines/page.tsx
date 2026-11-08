@@ -10,7 +10,7 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { guard } from "@/lib/auth/guard";
-import { requireUser } from "@/lib/auth/session";
+import { requireStaff } from "@/lib/auth/session";
 import { HEALTH } from "@/lib/constants/admin-labels";
 import { FREQUENCY_UNIT, TONTINE_STATUS } from "@/lib/constants/labels";
 import { formatDate } from "@/lib/utils/dates";
@@ -26,7 +26,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function AdminTontinesPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const user = await requireUser("/admin/tontines");
+  const user = await requireStaff("/admin/tontines");
   const status = TONTINE_STATUSES.includes(one(sp.status) as TontineStatus) ? (one(sp.status) as TontineStatus) : undefined;
   const health = Object.keys(HEALTH).includes(one(sp.health) ?? "") ? one(sp.health) : undefined;
   const q = one(sp.q)?.slice(0, 80);

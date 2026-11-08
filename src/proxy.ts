@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 // Fichiers de la PWA (/sw.js, /offline, /manifest.webmanifest) : accessibles sans session, sans aucune donnée.
 // Site vitrine : pages publiques. « / » n'en fait pas partie : sans session, il est réécrit vers la page d'accueil du site.
-const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/staff-invite/", "/api/", "/guide", "/sw.js", "/offline", "/manifest.webmanifest", "/bienvenue", "/fonctionnalites", "/tarifs", "/faq", "/contact", "/cgu", "/confidentialite"];
+const PUBLIC = ["/login", "/admin/login", "/register", "/forgot-password", "/reset-password", "/invite/", "/staff-invite/", "/api/", "/guide", "/sw.js", "/offline", "/manifest.webmanifest", "/bienvenue", "/fonctionnalites", "/tarifs", "/faq", "/contact", "/cgu", "/confidentialite"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -17,7 +17,8 @@ export function proxy(request: NextRequest) {
   // Visiteur sur la racine : site vitrine (l'URL reste « / »).
   if (pathname === "/") return NextResponse.rewrite(new URL("/bienvenue", request.url));
   const url = request.nextUrl.clone();
-  url.pathname = "/login";
+  // L'administration a sa propre page de connexion.
+  url.pathname = pathname === "/admin" || pathname.startsWith("/admin/") ? "/admin/login" : "/login";
   url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
   return NextResponse.redirect(url);
 }

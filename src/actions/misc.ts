@@ -35,10 +35,15 @@ export async function markAllNotificationsReadAction() {
 }
 
 export async function updateProfileAction(raw: unknown) {
-  return authed(profileSchema, raw, async (input, ctx) => {
-    (await updateProfile(ctx, input));
-    revalidatePath("/", "layout");
-  });
+  return authed(
+    profileSchema,
+    raw,
+    async (input, ctx) => {
+      (await updateProfile(ctx, input));
+      revalidatePath("/", "layout");
+    },
+    { allowStaff: true },
+  );
 }
 
 export async function changePasswordAction(raw: unknown) {
@@ -50,7 +55,7 @@ export async function changePasswordAction(raw: unknown) {
       if (err instanceof APIError) throw new AppError("VALIDATION", "Mot de passe actuel incorrect.", { currentPassword: "Mot de passe incorrect." });
       throw err;
     }
-  });
+  }, { allowStaff: true });
 }
 
 /** Réinitialise le jeu de démonstration (désactivé en production). */
