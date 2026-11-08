@@ -39,7 +39,7 @@ export function notify(s: DbState, ctx: Ctx, input: NotifyInput): boolean {
 
 export type NotificationView = Notification & { tontineName: string | null; href: string | null };
 
-function hrefFor(n: Notification): string | null {
+export function hrefFor(n: Pick<Notification, "type" | "tontineId">): string | null {
   if (n.type === "INVITATION_RECEIVED") return "/alerts#invitations";
   if (!n.tontineId) return null;
   if (n.type.startsWith("PAYMENT") || n.type.startsWith("DUE")) return `/tontines/${n.tontineId}/payments`;

@@ -45,6 +45,8 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
 | `SMTP_URL` | *(vide)* | Courrier sortant (ex. `smtp://utilisateur:motdepasse@hote:587`). Vide : les e-mails sont seulement écrits dans les journaux. |
 | `MAIL_FROM` | `KOTI <no-reply@koti.app>` | Expéditeur des e-mails. |
 | `KOTI_REQUIRE_EMAIL_VERIFICATION` | `0` | `1` : la confirmation de l'adresse e-mail est exigée avant la première connexion (exige `SMTP_URL`). |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | *(vides)* | Notifications push : paire de clés générée **une fois** par `npm run push:keys` (à conserver). Vides : le bouton « Activer » du profil indique que la fonction n'est pas disponible. |
+| `VAPID_SUBJECT` | `mailto:contact@koti.app` | Contact transmis aux services push (adresse de l'exploitant). |
 | `KOTI_AUTO_MIGRATE` | `1` | Applique les migrations de la base au démarrage (le serveur ne démarre pas si elles échouent). |
 | `TRUST_PROXY` | `1` | L'adresse IP réelle du visiteur est lue via le proxy de Coolify (limitation des tentatives de connexion). |
 
@@ -70,6 +72,18 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
 - Les dates du jeu de démo sont calculées le jour de sa création : pour une campagne longue, réinitialisez de temps en
   temps pour garder des échéances « à venir » réalistes.
 
+## 6 bis. Tâche planifiée (obligatoire pour les rappels)
+
+Les rappels d'échéance, les alertes de retard et leurs notifications push sont produits par la tâche horaire
+`/api/v1/jobs/run`. Sans tâche planifiée, elle ne s'exécute que lorsqu'un utilisateur ouvre l'application. Dans Coolify :
+**ressource → Scheduled Tasks → Add** :
+
+- Conteneur : `app` — Fréquence : `0 * * * *` (toutes les heures) — Commande :
+  ```
+  node -e "fetch('http://127.0.0.1:3700/api/v1/jobs/run',{method:'POST',headers:{Authorization:'Bearer '+process.env.CRON_SECRET}}).then(r=>{console.log(r.status);process.exit(r.ok?0:1)})"
+  ```
+La tâche est idempotente : un créneau horaire n'est traité qu'une fois, même si elle se lance deux fois.
+
 ## 7. Application installable (PWA) et mises à jour
 
 KOTI s'installe sur l'écran d'accueil (Android : bouton « Installer », iPhone : Partager → « Sur l'écran d'accueil »).
@@ -77,7 +91,7 @@ Chaque déploiement porte un identifiant de version (commit fourni par Coolify v
 les applications installées le détectent et affichent **« Nouvelle version disponible — Mettre à jour »**.
 Rien à faire de votre côté après un `Deploy`. Le HTTPS est indispensable (le service worker ne fonctionne pas en `http://`).
 
-À savoir : une installation est liée au **domaine**. Les testeurs qui installent la démo devront réinstaller quand KOTI
+**Notifications push** : sur Android/Chrome elles fonctionnent dans le navigateur et dans l'application installée ; sur iPhone, seulement une fois KOTI ajouté à l'écran d'accueil (iOS 16.4 minimum). Chaque appareil s'active depuis **Profil → Notifications**. À savoir : une installation est liée au **domaine**. Les testeurs qui installent la démo devront réinstaller quand KOTI
 passera sur le domaine de production.
 
 ## 8. Dépannage

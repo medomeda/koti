@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountActions, PasswordForm, ProfileForm } from "@/components/forms/profile-forms";
 import { InstallSection } from "@/components/pwa/install-prompt";
+import { PushSettings } from "@/components/pwa/push-settings";
+import { ALL_CATEGORIES, PUSH_CATEGORIES, getPushState, vapidPublicKey } from "@/modules/push/push.service";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +24,7 @@ export default async function ProfilePage() {
   const allowReset = allowDemoReset();
   const account = (await getAccount(ctxFor(user.id)));
   const staffRole = (await platformRoleOf(user.id));
+  const push = await getPushState(user.id);
   return (
     <>
       <PageHeader title="Profil" description="Vos informations personnelles et la sécurité de votre compte." />
@@ -94,6 +97,17 @@ export default async function ProfilePage() {
             </CardHeader>
             <CardContent>
               <PasswordForm />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>Rappels d&apos;échéance et validations de paiement sur cet appareil.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <PushSettings publicKey={vapidPublicKey()} categories={push.categories} allCategories={ALL_CATEGORIES.map((k) => ({ key: k, label: PUSH_CATEGORIES[k].label, description: PUSH_CATEGORIES[k].description }))} knownEndpoints={push.endpoints} />
             </CardContent>
           </Card>
           <Card>

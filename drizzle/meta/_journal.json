@@ -43,6 +43,13 @@
       "when": 1794160271928,
       "tag": "0005_better_auth_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794161514910,
+      "tag": "0006_push_notifications",
+      "breakpoints": true
     }
   ]
 }

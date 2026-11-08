@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { getDb, type Db, type Executor } from "../client";
 import { ensureReady } from "../ready";
+import { deliverPush } from "@/modules/push/push.service";
 import { emptyState, SCHEMA_VERSION, type DbState } from "../store";
 import { canonical, INSERT_ORDER, keyOf, REGISTRY, toDomain, toRow, type TableKey } from "./registry";
 
@@ -232,14 +233,19 @@ export async function pgTx<T>(scope: Scope, fn: (s: DbState) => T, db: Db = getD
   await ensureReady();
   for (let attempt = 1; ; attempt++) {
     try {
-      return await db.transaction(async (tx) => {
+      const { result, created } = await db.transaction(async (tx) => {
         await lock(tx, scope);
         const state = await load(tx, scope);
         const before = snapshotOf(state);
         const result = fn(state);
         await persist(tx, before, state);
-        return result;
+        // Notifications internes créées par cette opération : leur push partira APRÈS validation de la transaction.
+        const known = before.get("notifications")!;
+        const created = state.notifications.filter((n) => !known.has(n.id)).map(({ id, userId, type, tontineId }) => ({ id, userId, type, tontineId }));
+        return { result, created };
       });
+      if (created.length) void deliverPush(created, db).catch((err) => console.error("[koti:push] livraison en échec", err instanceof Error ? err.message : err));
+      return result;
     } catch (err) {
       const code = sqlState(err);
       if (attempt >= 3 || !code || !RETRYABLE.has(code)) throw err;

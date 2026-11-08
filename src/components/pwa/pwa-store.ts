@@ -1,5 +1,7 @@
 "use client";
 
+import { disablePush } from "./push-client";
+
 import { useSyncExternalStore } from "react";
 
 /**
@@ -91,8 +93,12 @@ export function dismissInstallCard() {
   emit();
 }
 
-/** Vide les caches de l'application (à la déconnexion : rien ne doit rester sur un appareil partagé). */
+/**
+ * À la déconnexion : rien ne doit rester sur un appareil partagé. On retire donc l'abonnement push de l'appareil
+ * (il ne recevrait sinon plus que les notifications de l'ancien compte) puis on vide les caches de l'application.
+ */
 export async function clearAppCaches() {
+  await disablePush();
   try {
     if (!("caches" in window)) return;
     const keys = await caches.keys();

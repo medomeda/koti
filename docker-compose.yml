@@ -36,6 +36,10 @@ services:
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-KOTI <no-reply@koti.app>}
       KOTI_REQUIRE_EMAIL_VERIFICATION: ${KOTI_REQUIRE_EMAIL_VERIFICATION:-0}
+      # Notifications push (facultatif) : paire de clés générée UNE fois par `npm run push:keys`, à garder (changer la clé coupe les abonnements).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contact@koti.app}
       KOTI_DEMO_MODE: ${KOTI_DEMO_MODE:-1}
       KOTI_ALLOW_DEMO_RESET: ${KOTI_ALLOW_DEMO_RESET:-0}
       # Derrière le proxy Traefik de Coolify : IP client lue dans X-Forwarded-For.
