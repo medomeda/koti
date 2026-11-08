@@ -152,3 +152,9 @@ export function migrateV7ToV8(legacy: unknown): DbState {
   const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
   return { ...(old as unknown as DbState), version: 8, announcements: (old.announcements as DbState["announcements"] | undefined) ?? [] };
 }
+
+/** Migration v8 → v9 : invitations de collaborateurs de l'équipe KOTI (vide au départ). */
+export function migrateV8ToV9(legacy: unknown): DbState {
+  const old = structuredClone(legacy) as Record<string, unknown> & { version: number };
+  return { ...(old as unknown as DbState), version: 9, staffInvitations: (old.staffInvitations as DbState["staffInvitations"] | undefined) ?? [] };
+}

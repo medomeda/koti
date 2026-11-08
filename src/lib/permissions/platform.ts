@@ -16,6 +16,7 @@ export const PLATFORM_PERMISSIONS = {
   "plan.edit": ["SUPER_ADMIN"],
   "message.handle": ["SUPPORT", "SUPER_ADMIN"],
   "announcement.manage": ["SUPER_ADMIN"],
+  "team.manage": ["SUPER_ADMIN"],
 } as const satisfies Record<string, readonly PlatformRole[]>;
 
 export type PlatformPermission = keyof typeof PLATFORM_PERMISSIONS;

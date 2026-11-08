@@ -4,13 +4,13 @@ import { Eye, EyeOff, Megaphone } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { createAnnouncementAction, setAnnouncementActiveAction } from "@/actions/admin";
+import { ANNOUNCEMENT_TONES } from "@/lib/constants/admin-labels";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import type { AnnouncementTone } from "@/types/domain";
 import { FormDialog } from "./client-actions";
 
-export const ANNOUNCEMENT_TONES: Record<AnnouncementTone, string> = { info: "Information", warning: "Avertissement", success: "Bonne nouvelle" };
 
 export function NewAnnouncementButton() {
   const [open, setOpen] = useState(false);

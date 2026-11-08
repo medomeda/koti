@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addClientNote, changeClientPlan, grantTrial, previewPlanImpact, reactivateUser, resetPlan, suspendUser, updatePlan } from "@/modules/admin/admin.service";
 import { createAnnouncement, handleContactRequest, reopenContactRequest, setAnnouncementActive } from "@/modules/admin/support.service";
-import { idSchema } from "@/lib/validations";
+import { acceptStaffInvitation, changeStaffRole, inviteStaff, revokeStaffInvitation, setStaffStatus } from "@/modules/admin/team.service";
+import { emailSchema, idSchema, tokenSchema } from "@/lib/validations";
 import { authed } from "./_shared";
 
 /**
@@ -127,6 +128,47 @@ export async function setAnnouncementActiveAction(raw: unknown) {
   return authed(z.object({ id: idSchema, active: z.boolean() }), raw, (input, ctx) => {
     setAnnouncementActive(ctx, input);
     revalidatePath("/admin", "layout");
+    revalidatePath("/", "layout");
+  });
+}
+
+/* ------------------------------------------------------------------ Équipe KOTI */
+
+const staffRole = z.enum(["SUPPORT", "SUPER_ADMIN"]);
+
+export async function inviteStaffAction(raw: unknown) {
+  return authed(z.object({ email: emailSchema, role: staffRole }), raw, (input, ctx) => {
+    const { token } = inviteStaff(ctx, input);
+    revalidatePath("/admin/equipe");
+    return { token };
+  });
+}
+
+export async function revokeStaffInvitationAction(raw: unknown) {
+  return authed(z.object({ id: idSchema }), raw, (input, ctx) => {
+    revokeStaffInvitation(ctx, input);
+    revalidatePath("/admin/equipe");
+  });
+}
+
+export async function changeStaffRoleAction(raw: unknown) {
+  return authed(z.object({ userId: idSchema, role: staffRole, reason }), raw, (input, ctx) => {
+    changeStaffRole(ctx, input);
+    revalidatePath("/admin", "layout");
+  });
+}
+
+export async function setStaffStatusAction(raw: unknown) {
+  return authed(z.object({ userId: idSchema, active: z.boolean(), reason }), raw, (input, ctx) => {
+    setStaffStatus(ctx, input);
+    revalidatePath("/admin", "layout");
+  });
+}
+
+/** Accepte une invitation d'équipe avec le compte connecté (l'e-mail doit correspondre). */
+export async function acceptStaffInvitationAction(raw: unknown) {
+  return authed(z.object({ token: tokenSchema }), raw, (input, ctx) => {
+    acceptStaffInvitation(ctx, input.token);
     revalidatePath("/", "layout");
   });
 }

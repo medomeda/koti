@@ -300,6 +300,21 @@ export interface ContactRequest {
   reply?: string;
 }
 
+export type StaffInvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED";
+
+/** Invitation d'un collaborateur dans l'équipe KOTI. Seule l'empreinte du jeton est stockée. */
+export interface StaffInvitation {
+  id: string;
+  email: string;
+  role: Exclude<PlatformRole, "USER">;
+  tokenHash: string;
+  status: StaffInvitationStatus;
+  invitedBy: string;
+  expiresAt: ISODateTime;
+  createdAt: ISODateTime;
+  acceptedAt: ISODateTime | null;
+}
+
 export type AnnouncementTone = "info" | "warning" | "success";
 
 /** Annonce de l'équipe KOTI affichée en bandeau à tous les clients connectés tant qu'elle est active et non expirée. */

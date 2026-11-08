@@ -8,7 +8,8 @@ import { getPublicPlans, runBilling } from "@/modules/billing/billing.service";
 import { addDays, todayISO } from "@/lib/utils/dates";
 import { ctxFor } from "@/server/context";
 import { activeAnnouncements, createAnnouncement, handleContactRequest, listPlatformAudit, reopenContactRequest, setAnnouncementActive } from "@/modules/admin/support.service";
-import { migrateV5ToV6, migrateV6ToV7, migrateV7ToV8 } from "@/server/db/migrations";
+import { acceptStaffInvitation, changeStaffRole, inviteStaff, previewStaffInvitation, revokeStaffInvitation, setStaffStatus } from "@/modules/admin/team.service";
+import { migrateV5ToV6, migrateV6ToV7, migrateV7ToV8, migrateV8ToV9 } from "@/server/db/migrations";
 import { ensureDemoStaff } from "@/server/db/seed";
 import { read, resetDatabase, tx, type DbState } from "@/server/db/store";
 
@@ -396,5 +397,75 @@ describe("Étape 4 — messages, annonces, journal d'audit", () => {
     expect(out.version).toBe(8);
     expect(out.announcements).toEqual([]);
     expect(out.users.length).toBe(v7.users.length);
+  });
+});
+
+describe("Équipe KOTI — collaborateurs et rôles", () => {
+  const newUser = (email: string) => signUp({ fullName: "Nouveau Collègue", email, phone: `+2250700${Math.floor(100000 + Math.random() * 899999)}`, password: "Koti2026" });
+
+  it("seul le super-admin invite ; le support, lui, ne peut pas", () => {
+    expect(platformCan("SUPPORT", "team.manage")).toBe(false);
+    expect(() => inviteStaff(support(), { email: "x@koti.demo", role: "SUPPORT" })).toThrow(/droits/i);
+    expect(() => inviteStaff(ctxFor(id("ahmed@koti.demo")), { email: "x@koti.demo", role: "SUPPORT" })).toThrow(/introuvable/i);
+  });
+
+  it("invitation → compte créé → acceptation : le rôle est attribué, le lien est à usage unique", () => {
+    const { token } = inviteStaff(admin(), { email: "collegue@koti.demo", role: "SUPPORT" });
+    expect(read((s) => JSON.stringify(s.staffInvitations))).not.toContain(token); // seule l'empreinte est stockée
+    expect(previewStaffInvitation(token)?.role).toBe("SUPPORT");
+    expect(() => inviteStaff(admin(), { email: "collegue@koti.demo", role: "SUPPORT" })).toThrow(/déjà en attente/i);
+    const uid = newUser("collegue@koti.demo");
+    acceptStaffInvitation(ctxFor(uid), token);
+    expect(read((s) => s.users.find((u) => u.id === uid)!.platformRole)).toBe("SUPPORT");
+    expect(() => getPlatformOverview(ctxFor(uid))).not.toThrow();
+    expect(() => acceptStaffInvitation(ctxFor(uid), token)).toThrow(/plus valable/i);
+    expect(read((s) => s.auditLogs.some((a) => a.action === "admin.team.join" && a.actorId === uid))).toBe(true);
+  });
+
+  it("une invitation ne sert qu'avec l'adresse invitée, expire et peut être annulée", () => {
+    const { token } = inviteStaff(admin(), { email: "autre@koti.demo", role: "SUPER_ADMIN" });
+    const intrus = newUser("intrus@koti.demo");
+    expect(() => acceptStaffInvitation(ctxFor(intrus), token)).toThrow(/autre adresse/i);
+    expect(read((s) => s.users.find((u) => u.id === intrus)!.platformRole)).toBe("USER");
+    const invId = read((s) => s.staffInvitations.find((i) => i.email === "autre@koti.demo")!.id);
+    revokeStaffInvitation(admin(), { id: invId });
+    const uid = newUser("autre@koti.demo");
+    expect(() => acceptStaffInvitation(ctxFor(uid), token)).toThrow(/plus valable/i);
+    const { token: t2 } = inviteStaff(admin(), { email: "tard@koti.demo", role: "SUPPORT" });
+    const late = newUser("tard@koti.demo");
+    expect(() => acceptStaffInvitation({ ...ctxFor(late), now: new Date(Date.now() + 8 * 86400_000) }, t2)).toThrow(/plus valable/i);
+  });
+
+  it("refuse d'inviter un client qui a des tontines, ou quelqu'un déjà dans l'équipe", () => {
+    expect(() => inviteStaff(admin(), { email: "ahmed@koti.demo", role: "SUPPORT" })).toThrow(/client qui a des tontines/i);
+    expect(() => inviteStaff(admin(), { email: "support@koti.demo", role: "SUPER_ADMIN" })).toThrow(/déjà partie/i);
+  });
+
+  it("changement de rôle et désactivation : journalisés, avec garde-fous", () => {
+    const sup = id("support@koti.demo");
+    changeStaffRole(admin(), { userId: sup, role: "SUPER_ADMIN", reason: "Promotion" });
+    expect(platformCan(read((s) => s.users.find((u) => u.id === sup)!.platformRole), "team.manage")).toBe(true);
+    changeStaffRole(admin(), { userId: sup, role: "SUPPORT", reason: "Retour" });
+    // Personne ne modifie son propre accès, et le dernier super-admin actif est protégé.
+    expect(() => changeStaffRole(admin(), { userId: id("operateur@koti.demo"), role: "SUPPORT", reason: "Test" })).toThrow(/propre accès/i);
+    const root = id("operateur@koti.demo");
+    tx((s) => { s.users.find((u) => u.id === sup)!.platformRole = "SUPER_ADMIN"; });
+    expect(() => setStaffStatus(ctxFor(sup), { userId: root, active: false, reason: "Test" })).not.toThrow(); // deux super-admins : permis
+    setStaffStatus(ctxFor(sup), { userId: root, active: true, reason: "Retour" });
+    tx((s) => { s.users.find((u) => u.id === sup)!.platformRole = "SUPPORT"; });
+    // Désactivation : sessions fermées et accès refusé.
+    setStaffStatus(admin(), { userId: sup, active: false, reason: "Départ" });
+    expect(() => getPlatformOverview(ctxFor(sup))).toThrow(/introuvable/i);
+    setStaffStatus(admin(), { userId: sup, active: true, reason: "Retour" });
+    expect(read((s) => s.auditLogs.filter((a) => a.action.startsWith("admin.team.")).length)).toBeGreaterThan(5);
+  });
+
+  it("migration v8 → v9 : ajoute les invitations d'équipe", () => {
+    const v8 = JSON.parse(JSON.stringify(read((s) => s))) as any;
+    v8.version = 8;
+    delete v8.staffInvitations;
+    const out = migrateV8ToV9(v8);
+    expect(out.version).toBe(9);
+    expect(out.staffInvitations).toEqual([]);
   });
 });

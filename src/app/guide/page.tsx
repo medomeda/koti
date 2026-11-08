@@ -67,6 +67,7 @@ const SCENARIOS: Array<{ title: string; as: string; steps: string[] }> = [
       "Reconnectez-vous en support@koti.demo : vous consultez et annotez, mais les actions sensibles ne sont pas proposées.",
       "Offres : modifiez le prix ou une limite de l'offre Organisateur. L'aperçu indique combien de clients dépasseraient les nouvelles limites ; le site (/tarifs) est mis à jour tout de suite.",
       "Messages : ouvrez « Messages », cliquez « Marquer comme traité » et notez la réponse. Annonces (super-admin) : publiez « Maintenance programmée » ; reconnectez-vous en ahmed@koti.demo pour voir le bandeau et le fermer. Journal : toutes ces actions y figurent avec leur auteur.",
+      "Équipe (super-admin) : « Inviter un collaborateur » avec un rôle, copiez le lien, ouvrez-le dans une fenêtre privée, créez le compte avec l'adresse invitée puis « Rejoindre l'équipe ». Essayez ensuite « Passer en Super-admin » ou « Désactiver l'accès ».",
       "Tontines : vous ne voyez que des chiffres agrégés, jamais le détail des paiements des membres.",
     ],
   },

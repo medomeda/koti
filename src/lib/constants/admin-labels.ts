@@ -1,4 +1,4 @@
-import type { ContactTopic } from "@/types/domain";
+import type { AnnouncementTone, ContactTopic } from "@/types/domain";
 import type { Tone } from "./labels";
 
 export const TOPIC_LABEL: Record<ContactTopic, string> = {
@@ -30,6 +30,11 @@ export const ACTION_LABEL: Record<string, string> = {
   "admin.announcement.create": "Annonce publiée",
   "admin.announcement.publish": "Annonce republiée",
   "admin.announcement.unpublish": "Annonce retirée",
+  "admin.team.invite": "Collaborateur invité",
+  "admin.team.revoke": "Invitation annulée",
+  "admin.team.join": "Collaborateur arrivé",
+  "admin.team.role": "Rôle modifié",
+  "admin.team.status": "Accès d'un collaborateur modifié",
 };
 
 const FIELD_LABEL: Record<string, string> = {
@@ -47,6 +52,8 @@ const FIELD_LABEL: Record<string, string> = {
   title: "titre",
   tone: "type",
   endsAt: "fin",
+  platformRole: "rôle",
+  email: "e-mail",
 };
 const SKIP = new Set(["userId", "title"]);
 
@@ -58,6 +65,8 @@ const VALUE_LABEL: Record<string, string> = {
   FREE: "Découverte",
   PRO: "Organisateur",
   ASSOCIATION: "Association",
+  SUPPORT: "Support",
+  SUPER_ADMIN: "Super-admin",
   info: "information",
   warning: "avertissement",
   success: "bonne nouvelle",
@@ -74,3 +83,6 @@ export function describeChange(before: Record<string, unknown> | null, after: Re
     .map((k) => (before && k in before ? `${FIELD_LABEL[k] ?? k} : ${show(before[k])} → ${show(after?.[k])}` : `${FIELD_LABEL[k] ?? k} : ${show(after?.[k])}`));
   return parts.length ? parts.join(" · ") : null;
 }
+
+export const ROLE_LABEL: Record<"SUPPORT" | "SUPER_ADMIN", string> = { SUPPORT: "Support", SUPER_ADMIN: "Super-admin" };
+export const ANNOUNCEMENT_TONES: Record<AnnouncementTone, string> = { info: "Information", warning: "Avertissement", success: "Bonne nouvelle" };

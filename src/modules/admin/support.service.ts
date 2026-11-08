@@ -119,6 +119,7 @@ export const AUDIT_CATEGORIES = {
   offres: { label: "Offres", prefixes: ["admin.plan."] },
   messages: { label: "Messages", prefixes: ["admin.message."] },
   annonces: { label: "Annonces", prefixes: ["admin.announcement."] },
+  equipe: { label: "Équipe", prefixes: ["admin.team."] },
 } as const;
 export type AuditCategory = keyof typeof AUDIT_CATEGORIES;
 
@@ -141,6 +142,7 @@ export function listPlatformAudit(ctx: Ctx, f: { category?: AuditCategory; actor
       if (a.entityType === "contactRequest") return s.contactRequests.find((c) => c.id === a.entityId)?.name ?? null;
       if (a.entityType === "announcement") return s.announcements.find((x) => x.id === a.entityId)?.title ?? null;
       if (a.entityType === "plan") return a.entityId;
+      if (a.entityType === "staffInvitation") return (a.newValues as { email?: string } | null)?.email ?? null;
       return null;
     };
     const staff = s.users.filter((u) => u.platformRole !== "USER").map((u) => ({ id: u.id, name: nameOf(s, u.id) }));

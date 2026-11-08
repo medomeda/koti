@@ -1,9 +1,10 @@
 import { Megaphone } from "lucide-react";
 import type { Metadata } from "next";
-import { AnnouncementToggle, NewAnnouncementButton, ANNOUNCEMENT_TONES } from "@/components/admin/announcements-admin";
+import { AnnouncementToggle, NewAnnouncementButton } from "@/components/admin/announcements-admin";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/ui/feedback";
+import { ANNOUNCEMENT_TONES } from "@/lib/constants/admin-labels";
 import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
 import { platformCan } from "@/lib/permissions/platform";

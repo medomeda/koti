@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CreditCard, LayoutDashboard, LogOut, Mail, Megaphone, ScrollText, SlidersHorizontal, Users, Landmark } from "lucide-react";
+import { Globe, CreditCard, UserCog, LayoutDashboard, LogOut, Mail, Megaphone, ScrollText, SlidersHorizontal, Users, Landmark } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -18,6 +18,7 @@ const NAV = [
   { href: "/admin/offres", label: "Offres", icon: SlidersHorizontal },
   { href: "/admin/messages", label: "Messages", icon: Mail },
   { href: "/admin/annonces", label: "Annonces", icon: Megaphone },
+  { href: "/admin/equipe", label: "Équipe", icon: UserCog },
   { href: "/admin/audit", label: "Journal", icon: ScrollText },
 ] as const;
 
@@ -46,8 +47,8 @@ export function AdminShell({ user, role, newMessages, banner, children }: { user
             );
           })}
         </nav>
-        <Link href="/" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-white/5 hover:text-white">
-          <ArrowLeft className="size-4" aria-hidden /> Retour à l&apos;application
+        <Link href="/bienvenue" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-white/5 hover:text-white">
+          <Globe className="size-4" aria-hidden /> Voir le site public
         </Link>
         <p className="mt-2 px-3 text-[11px] leading-snug text-sidebar-muted">Vous voyez des agrégats : le détail des paiements des membres n&apos;est jamais exposé.</p>
       </aside>
@@ -70,8 +71,8 @@ export function AdminShell({ user, role, newMessages, banner, children }: { user
               <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/">
-                  <ArrowLeft /> Retour à l&apos;application
+                <Link href="/bienvenue">
+                  <Globe /> Voir le site public
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem destructive onSelect={() => void clearAppCaches().then(() => logoutAction())}>
