@@ -17,7 +17,7 @@ describe.skipIf(!hasTestDb)("Unité de travail PostgreSQL", () => {
   beforeEach(() => resetWithDemo(conn));
 
   it("le jeu de démonstration est importé en entier, sans perte", async () => {
-    const counts = await snapshot(conn, (s) => ({ users: s.users.length, tontines: s.tontines.length, tickets: s.tontineTickets.length, obligations: s.contributionObligations.length, payments: s.payments.length, audit: s.auditLogs.length, credentials: s.credentials.length }));
+    const counts = await snapshot(conn, (s) => ({ users: s.users.length, tontines: s.tontines.length, tickets: s.tontineTickets.length, obligations: s.contributionObligations.length, payments: s.payments.length, audit: s.auditLogs.length, accounts: s.accounts.length }));
     expect(counts.users).toBeGreaterThanOrEqual(8);
     expect(counts.tontines).toBeGreaterThanOrEqual(5);
     expect(counts.obligations).toBeGreaterThan(20);

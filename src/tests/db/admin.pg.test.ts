@@ -9,7 +9,7 @@ import * as pg from "@/server/pg/services";
 import { useConnection, type Connection } from "@/server/db/client";
 import { pgTx } from "@/server/db/uow";
 import { hasTestDb, openTestDb } from "./helpers";
-import { resetWithDemo, snapshot } from "./pg-harness";
+import { authenticate, resetWithDemo, snapshot } from "./pg-harness";
 
 let conn: Connection;
 let demo: DbState;
@@ -135,15 +135,15 @@ describe("Espace admin — clients", () => {
 describe("Espace admin — actions sur un compte", () => {
   it("suspendre : connexion refusée et sessions fermées, journalisé ; réactiver : accès rétabli", async () => {
     const awa = id("awa@koti.demo");
-    expect((await pg.authenticate("awa@koti.demo", "Koti2026"))).toBe(awa);
+    expect((await authenticate(conn, "awa@koti.demo", "Koti2026"))).toBe(awa);
     (await pg.suspendUser(admin(), { userId: awa, reason: "Test de suspension" }));
-    await expect((async () => (await pg.authenticate("awa@koti.demo", "Koti2026")))()).rejects.toThrow(/suspendu/);
+    await expect((async () => (await authenticate(conn, "awa@koti.demo", "Koti2026")))()).rejects.toThrow(/suspendu/);
     await expect((async () => (await pg.suspendUser(admin(), { userId: awa, reason: "Encore" })))()).rejects.toThrow(/déjà suspendu/);
     const log = await snap((s) => s.auditLogs.filter((a) => a.action === "admin.user.suspend" && a.entityId === awa));
     expect(log.at(-1)).toMatchObject({ reason: "Test de suspension", actorId: admin().userId });
     expect((await pg.getClient(admin(), awa)).timeline[0]!.label).toMatch(/Compte suspendu/);
     (await pg.reactivateUser(admin(), { userId: awa, reason: "Erreur de manipulation" }));
-    expect((await pg.authenticate("awa@koti.demo", "Koti2026"))).toBe(awa);
+    expect((await authenticate(conn, "awa@koti.demo", "Koti2026"))).toBe(awa);
   });
 
   it("on ne peut agir ni sur l'équipe, ni sur soi-même", async () => {

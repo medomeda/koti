@@ -15,6 +15,34 @@
       "when": 1794149792620,
       "tag": "0001_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794160255853,
+      "tag": "0002_better_auth_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794160270974,
+      "tag": "0003_drop_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794160271466,
+      "tag": "0004_drop_legacy_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794160271928,
+      "tag": "0005_better_auth_sessions",
+      "breakpoints": true
     }
   ]
 }

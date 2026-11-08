@@ -59,13 +59,46 @@ export type AccountStatus = "ACTIVE" | "SUSPENDED";
 
 export interface User {
   id: string;
+  /** Nom complet recopié pour Better Auth (la source métier est `UserProfile.fullName`). */
+  name: string;
   email: string;
+  image: string | null;
+  updatedAt: ISODateTime;
   emailVerified: boolean;
   /** Rôle plateforme : USER pour tous les clients et membres, SUPPORT / SUPER_ADMIN pour l'équipe KOTI. */
   platformRole: PlatformRole;
   /** Un compte suspendu ne peut plus se connecter (ses sessions sont refusées). */
   status: AccountStatus;
   createdAt: ISODateTime;
+}
+
+/** Compte d'authentification (Better Auth). `providerId` « credential » = mot de passe haché (scrypt) dans `password`. */
+export interface Account {
+  id: string;
+  accountId: string;
+  providerId: string;
+  userId: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+  idToken: string | null;
+  accessTokenExpiresAt: ISODateTime | null;
+  refreshTokenExpiresAt: ISODateTime | null;
+  scope: string | null;
+  password: string | null;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+/** Session ouverte (Better Auth). */
+export interface AuthSession {
+  id: string;
+  token: string;
+  expiresAt: ISODateTime;
+  ipAddress: string | null;
+  userAgent: string | null;
+  userId: string;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
 }
 
 export type PlanId = "FREE" | "PRO" | "ASSOCIATION";

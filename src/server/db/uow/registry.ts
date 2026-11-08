@@ -20,8 +20,8 @@ const def = (table: PgTable, pk: string[], optional?: string[]): TableDef => ({ 
 export const REGISTRY: Record<TableKey, TableDef> = {
   users: def(t.users, ["id"]),
   userProfiles: def(t.userProfiles, ["userId"]),
-  credentials: def(t.credentials, ["userId"]),
-  sessions: def(t.sessions, ["tokenHash"]),
+  accounts: def(t.accounts, ["id"]),
+  sessions: def(t.sessions, ["id"]),
   subscriptions: def(t.subscriptions, ["id"]),
   invoices: def(t.invoices, ["id"]),
   planSettings: def(t.planSettings, ["planId"]),
@@ -45,7 +45,7 @@ export const REGISTRY: Record<TableKey, TableDef> = {
 
 /** Ordre d'insertion respectant les clés étrangères (les suppressions suivent l'ordre inverse). */
 export const INSERT_ORDER: TableKey[] = [
-  "users", "userProfiles", "credentials", "sessions", "subscriptions", "invoices", "planSettings", "adminNotes", "contactRequests", "announcements", "staffInvitations",
+  "users", "userProfiles", "accounts", "sessions", "subscriptions", "invoices", "planSettings", "adminNotes", "contactRequests", "announcements", "staffInvitations",
   "tontines", "tontineMembers", "rotationCycles", "tontineTickets", "invitations", "contributionPeriods", "contributionObligations", "payments", "rotationSlots", "notifications", "auditLogs", "jobRuns",
 ];
 

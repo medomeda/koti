@@ -25,6 +25,7 @@ export function InviteStaffButton() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+  const [emailed, setEmailed] = useState(false);
   const [copied, setCopied] = useState(false);
   const reset = () => {
     setOpen(false);
@@ -41,7 +42,7 @@ export function InviteStaffButton() {
       </Button>
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : reset())}>
         <DialogContent>
-          <DialogHeader title={link ? "Invitation créée" : "Inviter un collaborateur"} description={link ? "Transmettez ce lien à la personne. Il est à usage unique, valable 7 jours, et ne fonctionne qu'avec l'adresse invitée." : "La personne reçoit un lien pour rejoindre l'équipe avec le rôle choisi."} />
+          <DialogHeader title={link ? "Invitation créée" : "Inviter un collaborateur"} description={link ? `${emailed ? "Un e-mail contenant le lien vient d'être envoyé. " : "Transmettez ce lien à la personne. "}Il est à usage unique, valable 7 jours, et ne fonctionne qu'avec l'adresse invitée.` : "La personne reçoit un lien pour rejoindre l'équipe avec le rôle choisi."} />
           {link ? (
             <>
               <DialogBody>
@@ -78,6 +79,7 @@ export function InviteStaffButton() {
                 setBusy(false);
                 if (!res.ok) return setError(res.fieldErrors ? Object.values(res.fieldErrors)[0] ?? res.error : res.error);
                 setLink(`${window.location.origin}/staff-invite/${res.data.token}`);
+                setEmailed(res.data.emailed);
               }}
             >
               <DialogBody>

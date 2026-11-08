@@ -3,12 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSession, destroySession } from "@/lib/auth/session";
+import { APIError } from "better-auth/api";
+import { headers } from "next/headers";
+import { getAuth } from "@/server/auth";
 import { allowDemoReset } from "@/lib/demo";
 import { changePasswordSchema, idSchema, profileSchema, reorderRotationSchema } from "@/lib/validations";
 import { resetDemoData } from "@/server/db/ready";
+import { AppError } from "@/server/errors";
 import { authed } from "./_shared";
-import { changePassword, markAllRead, markRead, reorderRotation, updateProfile } from "@/server/pg/services";
+import { markAllRead, markRead, reorderRotation, updateProfile } from "@/server/pg/services";
 
 export async function reorderRotationAction(raw: unknown) {
   return authed(reorderRotationSchema, raw, async (input, ctx) => {
@@ -39,13 +42,15 @@ export async function updateProfileAction(raw: unknown) {
 }
 
 export async function changePasswordAction(raw: unknown) {
-  const result = await authed(changePasswordSchema, raw, async (input, ctx) => {
-    (await changePassword(ctx, input));
-    return ctx.userId;
+  return authed(changePasswordSchema, raw, async (input) => {
+    try {
+      // Les autres sessions sont fermées ; celle de cet appareil est renouvelée par Better Auth.
+      await getAuth().api.changePassword({ body: { currentPassword: input.currentPassword, newPassword: input.newPassword, revokeOtherSessions: true }, headers: await headers() });
+    } catch (err) {
+      if (err instanceof APIError) throw new AppError("VALIDATION", "Mot de passe actuel incorrect.", { currentPassword: "Mot de passe incorrect." });
+      throw err;
+    }
   });
-  // Toutes les sessions ont été révoquées : on en recrée une pour l'appareil courant.
-  if (result.ok) await createSession(result.data);
-  return result.ok ? { ok: true as const, data: undefined } : result;
 }
 
 /** Réinitialise le jeu de démonstration (désactivé en production). */
@@ -53,6 +58,6 @@ export async function resetDemoAction() {
   if (!allowDemoReset()) return { ok: false as const, error: "La réinitialisation est désactivée sur cette instance." };
   const result = await authed(z.object({}), {}, async () => resetDemoData());
   if (!result.ok) return result;
-  await destroySession();
+  await getAuth().api.signOut({ headers: await headers() }).catch(() => undefined);
   redirect("/login?reset=1");
 }

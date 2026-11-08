@@ -6,7 +6,7 @@ import * as pg from "@/server/pg/services";
 import { afterAll, beforeAll } from "vitest";
 import { useConnection, type Connection } from "@/server/db/client";
 import { hasTestDb, openTestDb } from "./helpers";
-import { resetWithDemo, snapshot } from "./pg-harness";
+import { authenticate, resetWithDemo, snapshot } from "./pg-harness";
 
 let conn: Connection;
 let demo: DbState;
@@ -37,8 +37,8 @@ async function newTontine(owner: string, overrides: Partial<Parameters<typeof pg
 describe("Scénario 1 — création", () => {
   it("un nouvel utilisateur crée une tontine et en devient administrateur", async () => {
     const id = (await pg.signUp({ fullName: "Nouvel Utilisateur", email: "nouveau@test.ci", phone: "+2250600000001", password: "Secret123" }));
-    expect((await pg.authenticate("nouveau@test.ci", "Secret123"))).toBe(id);
-    expect((await pg.authenticate("nouveau@test.ci", "mauvais"))).toBeNull();
+    expect((await authenticate(conn, "nouveau@test.ci", "Secret123"))).toBe(id);
+    expect((await authenticate(conn, "nouveau@test.ci", "mauvais"))).toBeNull();
     const tid = (await newTontine(id, { name: "Tontine Famille" }));
     const cards = (await pg.listMyTontines(ctxFor(id)));
     expect(cards).toHaveLength(1);

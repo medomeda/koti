@@ -36,8 +36,8 @@ import { runOnState } from "@/server/db/store";
 const onTontine = (ctx: Ctx, tontineId: string): Scope => ({ tontines: [tontineId], people: [ctx.userId] });
 const ofUser = (ctx: Ctx): Scope => ({ users: [ctx.userId] });
 
-/* ------------------------------------------------------------------ Comptes (déjà asynchrones, sur PostgreSQL) */
-export { authenticate, changePassword, signUp, updateProfile } from "@/modules/users/user.pg";
+/* ------------------------------------------------------------------ Comptes (création et profil ; connexion et sessions : Better Auth) */
+export { signUp, updateProfile } from "@/modules/users/user.pg";
 
 export const getProfileStats = reads(userStats.getProfileStats, (ctx) => ofUser(ctx));
 

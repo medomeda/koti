@@ -52,6 +52,10 @@ export const registerSchema = z
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 
+export const resetPasswordSchema = z
+  .object({ token: z.string().min(10).max(200), newPassword: passwordSchema, confirmPassword: z.string() })
+  .refine((d) => d.newPassword === d.confirmPassword, { path: ["confirmPassword"], message: "Les mots de passe ne correspondent pas." });
+
 export const profileSchema = z.object({
   fullName: trimmed(2, 80, "Le nom complet"),
   phone: phoneSchema,

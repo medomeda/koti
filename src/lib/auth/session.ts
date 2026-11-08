@@ -1,42 +1,34 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { createSessionRow, deleteSessionByToken, findSessionUser, type SessionUser } from "@/modules/users/session.pg";
+import { getDb } from "@/server/db/client";
+import { ensureReady } from "@/server/db/ready";
+import { userProfiles, users } from "@/server/db/schema";
+import { getAuth } from "@/server/auth";
 
 /**
- * Sessions côté serveur : jeton aléatoire de 256 bits dans un cookie httpOnly, SameSite=Lax, Secure en production ;
- * seule l'empreinte SHA-256 du jeton est stockée en base (voir `modules/users/session.pg.ts`).
- * Durée fixe de 7 jours. Better Auth prendra le relais (même contrat : cookie httpOnly, jeton haché).
+ * Session courante, via Better Auth (cookie httpOnly « koti.session_token », session en base).
+ * Un compte suspendu n'a plus de session valide, même si son cookie est encore présent.
  */
-export const SESSION_COOKIE = "koti_session";
-export type { SessionUser };
-
-export async function createSession(userId: string) {
-  const { token, expiresAt } = await createSessionRow(userId);
-  const jar = await cookies();
-  jar.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    expires: expiresAt,
-  });
-}
-
-export async function destroySession() {
-  const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
-  if (token) await deleteSessionByToken(token);
-  jar.delete(SESSION_COOKIE);
+export interface SessionUser {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string;
+  avatarUrl: string | null;
+  createdAt: string;
 }
 
 /** Session courante (mémoïsée par requête). */
 export const getSession = cache(async (): Promise<SessionUser | null> => {
-  const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  return findSessionUser(token);
+  await ensureReady();
+  const session = await getAuth().api.getSession({ headers: await headers() });
+  if (!session) return null;
+  const [row] = await getDb().select({ u: users, p: userProfiles }).from(users).leftJoin(userProfiles, eq(userProfiles.userId, users.id)).where(eq(users.id, session.user.id)).limit(1);
+  if (!row || row.u.status === "SUSPENDED") return null;
+  return { id: row.u.id, email: row.u.email, fullName: row.p?.fullName ?? row.u.email, phone: row.p?.phone ?? "", avatarUrl: row.p?.avatarUrl ?? null, createdAt: row.u.createdAt.toISOString() };
 });
 
 /** À utiliser dans les pages privées : redirige vers la connexion si nécessaire. */

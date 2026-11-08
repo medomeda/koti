@@ -32,7 +32,7 @@ Le HTTPS est **obligatoire** : les cookies de session sont marqués `Secure` en 
 
 ## 4. Variables d'environnement
 
-**Générées par Coolify, à ne pas toucher** : `SERVICE_PASSWORD_POSTGRES` (mot de passe de la base) et `SERVICE_HEX_64_CRONSECRET`. C'est le secret qui protège les routes
+**Générées par Coolify, à ne pas toucher** : `SERVICE_PASSWORD_POSTGRES` (mot de passe de la base), `SERVICE_HEX_64_CRONSECRET` et `SERVICE_HEX_64_BETTERAUTHSECRET` (secret des sessions). C'est le secret qui protège les routes
 d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa valeur pour la section 6.
 
 **Déjà réglées par défaut dans `docker-compose.yml`** (modifiables dans l'onglet Environment Variables) :
@@ -41,6 +41,10 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
 |---|---|---|
 | `KOTI_DEMO_MODE` | `1` | Bandeau « Version de démonstration », page `/guide`, comptes de démo sur la connexion. |
 | `KOTI_ALLOW_DEMO_RESET` | `0` | Masque le bouton « Réinitialiser la démo » aux testeurs (sinon l'un d'eux pourrait effacer le travail des autres). |
+| `BETTER_AUTH_URL` | *(à renseigner)* | Adresse publique **https** de l'application, sans `:3700` (ex. `https://koti-demo.mondomaine.com`) : sert aux liens des e-mails et à la vérification d'origine. |
+| `SMTP_URL` | *(vide)* | Courrier sortant (ex. `smtp://utilisateur:motdepasse@hote:587`). Vide : les e-mails sont seulement écrits dans les journaux. |
+| `MAIL_FROM` | `KOTI <no-reply@koti.app>` | Expéditeur des e-mails. |
+| `KOTI_REQUIRE_EMAIL_VERIFICATION` | `0` | `1` : la confirmation de l'adresse e-mail est exigée avant la première connexion (exige `SMTP_URL`). |
 | `KOTI_AUTO_MIGRATE` | `1` | Applique les migrations de la base au démarrage (le serveur ne démarre pas si elles échouent). |
 | `TRUST_PROXY` | `1` | L'adresse IP réelle du visiteur est lue via le proxy de Coolify (limitation des tentatives de connexion). |
 
@@ -89,7 +93,7 @@ passera sur le domaine de production.
 
 ## 9. Ce que cette version n'est pas
 
-Une instance de **démonstration** : pas d'e-mails réels, comptes publics, authentification maison (Better Auth viendra).
+Une instance de **démonstration** : pas d'e-mails réels, comptes publics, pas d'e-mails sans `SMTP_URL`.
 Ne jamais y saisir de données réelles. Voir `SUIVI.md` pour la suite de la phase 2.
 
 ## 10. Test local de l'image (optionnel)

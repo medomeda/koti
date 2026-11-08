@@ -12,9 +12,10 @@ export function registerUser(s: DbState, input: { fullName: string; email: strin
   if (s.userProfiles.some((p) => p.phone === input.phone)) throw new AppError("CONFLICT", "Ce numéro est déjà associé à un compte.", { phone: "Numéro déjà utilisé." });
   const id = newId();
   const now = input.now.toISOString();
-  s.users.push({ id, email: input.email, emailVerified: false, platformRole: "USER", status: "ACTIVE", createdAt: now });
+  // Comptes de démonstration : adresses considérées comme vérifiées (aucun e-mail ne peut y arriver).
+  s.users.push({ id, name: input.fullName, email: input.email, emailVerified: true, image: null, platformRole: "USER", status: "ACTIVE", createdAt: now, updatedAt: now });
   ensureSubscription(s, id, input.now);
-  s.credentials.push({ userId: id, passwordHash: input.passwordHash ?? hashPassword(input.password) });
+  s.accounts.push({ id: newId(), accountId: id, providerId: "credential", userId: id, accessToken: null, refreshToken: null, idToken: null, accessTokenExpiresAt: null, refreshTokenExpiresAt: null, scope: null, password: input.passwordHash ?? hashPassword(input.password), createdAt: now, updatedAt: now });
   s.userProfiles.push({ userId: id, fullName: input.fullName, phone: input.phone, avatarUrl: null, createdAt: now, updatedAt: now });
   // Phase backend : Better Auth envoie l'e-mail de vérification.
   return id;

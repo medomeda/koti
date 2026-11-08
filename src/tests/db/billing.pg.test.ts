@@ -10,7 +10,7 @@ import { afterAll, beforeAll } from "vitest";
 import { useConnection, type Connection } from "@/server/db/client";
 import { pgTx } from "@/server/db/uow";
 import { hasTestDb, openTestDb } from "./helpers";
-import { resetWithDemo, snapshot } from "./pg-harness";
+import { authenticate, resetWithDemo, snapshot } from "./pg-harness";
 
 let conn: Connection;
 let demo: DbState;
@@ -157,12 +157,12 @@ describe("Abonnement — changement d'offre et facturation (simulée)", () => {
 describe("Compte suspendu", () => {
   it("refuse la connexion même avec le bon mot de passe", async () => {
     const id = (await newClient());
-    expect((await pg.authenticate("client1@exemple.ci", "Motdepasse1"))).toBe(id);
+    expect((await authenticate(conn, "client1@exemple.ci", "Motdepasse1"))).toBe(id);
     await txn((s) => {
       s.users.find((u) => u.id === id)!.status = "SUSPENDED";
     });
-    await expect((async () => (await pg.authenticate("client1@exemple.ci", "Motdepasse1")))()).rejects.toThrow(/suspendu/);
-    expect((await pg.authenticate("client1@exemple.ci", "mauvais"))).toBeNull();
+    await expect((async () => (await authenticate(conn, "client1@exemple.ci", "Motdepasse1")))()).rejects.toThrow(/suspendu/);
+    expect((await authenticate(conn, "client1@exemple.ci", "mauvais"))).toBeNull();
   });
 });
 describe("Quotas — parcours existants non régressés", () => {

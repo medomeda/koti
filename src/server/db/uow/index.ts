@@ -74,7 +74,7 @@ export async function load(ex: Executor, scope: Scope): Promise<DbState> {
   const s = emptyState();
   const target = s as unknown as Record<TableKey, Plain[]>;
   if (scope.everything) {
-    for (const key of INSERT_ORDER) if (key !== "credentials" && key !== "sessions") target[key] = await select(ex, key);
+    for (const key of INSERT_ORDER) if (key !== "accounts" && key !== "sessions") target[key] = await select(ex, key);
     return s;
   }
 

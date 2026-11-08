@@ -32,8 +32,14 @@ function InviteDialog({ tontineId, open, onOpenChange }: { tontineId: string; op
   const [channel, setChannel] = useState<"EMAIL" | "PHONE">("EMAIL");
   const [value, setValue] = useState("");
   const [link, setLink] = useState<string | null>(null);
+  const [emailed, setEmailed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const invite = useAction(inviteMemberAction, { onSuccess: (d) => setLink(`${window.location.origin}${d.path}`) });
+  const invite = useAction(inviteMemberAction, {
+    onSuccess: (d) => {
+      setLink(`${window.location.origin}${d.path}`);
+      setEmailed(d.emailed);
+    },
+  });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +73,8 @@ function InviteDialog({ tontineId, open, onOpenChange }: { tontineId: string; op
           <>
             <DialogBody>
               <Alert tone="success" icon={<Check />} title="Invitation créée">
-                Si la personne a déjà un compte KOTI, elle la voit dans ses alertes. Partagez-lui aussi ce lien (WhatsApp, SMS…) :
+                {emailed ? "Un e-mail contenant le lien vient d'être envoyé. " : ""}
+                Si la personne a déjà un compte KOTI, elle la voit dans ses alertes. {emailed ? "Vous pouvez aussi lui transmettre ce lien (WhatsApp, SMS…) :" : "Partagez-lui ce lien (WhatsApp, SMS…) :"}
               </Alert>
               <div className="flex gap-2">
                 <Input readOnly value={link} onFocus={(e) => e.currentTarget.select()} aria-label="Lien d'invitation" className="font-mono text-xs sm:text-xs" />
@@ -75,7 +82,7 @@ function InviteDialog({ tontineId, open, onOpenChange }: { tontineId: string; op
                   {copied ? <Check /> : <Copy />}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Ce lien ne sera plus affiché : il est stocké sous forme chiffrée. Seul le contact invité peut l&apos;utiliser. L&apos;envoi automatique par e-mail/SMS arrivera avec le backend.</p>
+              <p className="text-xs text-muted-foreground">Ce lien ne sera plus affiché : il est stocké sous forme chiffrée. Seul le contact invité peut l&apos;utiliser. Les invitations par téléphone ne sont pas envoyées automatiquement : partagez le lien vous-même.</p>
             </DialogBody>
             <DialogFooter>
               <Button variant="outline" onClick={again}>

@@ -1,5 +1,7 @@
 import "server-only";
 import type {
+  Account,
+  AuthSession,
   AdminNote,
   Announcement,
   StaffInvitation,
@@ -30,25 +32,11 @@ import type {
  * seuls points d'accès des services ; hors d'une unité de travail, ils lèvent une erreur.
  */
 
-export interface Credential {
-  userId: string;
-  /** scrypt — format « scrypt$N$r$p$salt$hash » */
-  passwordHash: string;
-}
-
-export interface SessionRow {
-  /** SHA-256 du jeton de session : le jeton brut n'est jamais stocké. */
-  tokenHash: string;
-  userId: string;
-  expiresAt: string;
-  createdAt: string;
-}
-
 export interface DbState {
   version: number;
   users: User[];
-  credentials: Credential[];
-  sessions: SessionRow[];
+  accounts: Account[];
+  sessions: AuthSession[];
   userProfiles: UserProfile[];
   tontines: Tontine[];
   tontineMembers: TontineMember[];
@@ -82,7 +70,7 @@ export function emptyState(): DbState {
   return {
     version: SCHEMA_VERSION,
     users: [],
-    credentials: [],
+    accounts: [],
     sessions: [],
     userProfiles: [],
     tontines: [],

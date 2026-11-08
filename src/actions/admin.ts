@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { emailSchema, idSchema, tokenSchema } from "@/lib/validations";
+import { headers } from "next/headers";
+import { formatDate } from "@/lib/utils/dates";
+import { appUrl, mailIsConfigured, sendMail } from "@/server/mail";
+import { staffInvitationMail } from "@/server/mail/templates";
 import { authed } from "./_shared";
 import { acceptStaffInvitation, addClientNote, changeClientPlan, changeStaffRole, createAnnouncement, grantTrial, handleContactRequest, inviteStaff, previewPlanImpact, reactivateUser, reopenContactRequest, resetPlan, revokeStaffInvitation, setAnnouncementActive, setStaffStatus, suspendUser, updatePlan } from "@/server/pg/services";
 
@@ -135,10 +139,21 @@ export async function setAnnouncementActiveAction(raw: unknown) {
 const staffRole = z.enum(["SUPPORT", "SUPER_ADMIN"]);
 
 export async function inviteStaffAction(raw: unknown) {
-  return authed(z.object({ email: emailSchema, role: staffRole }), raw, async (input, ctx) => {
+  return authed(z.object({ email: emailSchema, role: staffRole }), raw, async (input, ctx, user) => {
     const { token } = (await inviteStaff(ctx, input));
     revalidatePath("/admin/equipe");
-    return { token };
+    let emailed = false;
+    if (mailIsConfigured()) {
+      try {
+        const origin = (await headers()).get("origin") ?? undefined;
+        const expires = new Date(ctx.now.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
+        await sendMail(staffInvitationMail(input.email, { invitedBy: user.fullName, role: input.role === "SUPER_ADMIN" ? "Super-admin" : "Support", url: `${appUrl(origin)}/staff-invite/${token}`, expiresOn: formatDate(expires) }));
+        emailed = true;
+      } catch {
+        /* déjà journalisé par sendMail : le lien reste affiché à l'administrateur */
+      }
+    }
+    return { token, emailed };
   });
 }
 

@@ -6,13 +6,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm, type FieldValues, type Path, type UseFormSetError } from "react-hook-form";
 import type { z } from "zod";
-import { forgotPasswordAction, loginAction, registerAction } from "@/actions/auth";
+import { forgotPasswordAction, loginAction, registerAction, resetPasswordAction } from "@/actions/auth";
 import type { ActionResult } from "@/actions/_shared";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
 import { Field, FormError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { forgotPasswordSchema, loginSchema, registerSchema } from "@/lib/validations";
+import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "@/lib/validations";
 
 function isRedirect(err: unknown) {
   return !!err && typeof err === "object" && "digest" in err && String((err as { digest: unknown }).digest).startsWith("NEXT_REDIRECT");
@@ -106,12 +106,23 @@ export function LoginForm({ next, demo }: { next?: string; demo?: { password: st
 
 export function RegisterForm({ next }: { next?: string }) {
   const [formError, setFormError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const { register, handleSubmit, formState, setError } = useForm<z.input<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: { fullName: "", email: "", phone: "", password: "", confirmPassword: "" },
   });
-  const onSubmit = handleSubmit((v) => submitTo(() => registerAction(v, next), setError, setFormError));
+  const onSubmit = handleSubmit(async (v) => {
+    const res = await submitTo(() => registerAction(v, next), setError, setFormError);
+    if (res?.ok) setDone(res.message ?? "Compte créé.");
+  });
   const e = formState.errors;
+  if (done) {
+    return (
+      <Alert tone="success" icon={<MailCheck />} title="Vérifiez votre boîte mail">
+        {done}
+      </Alert>
+    );
+  }
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <Field label="Nom complet" required error={e.fullName?.message}>
@@ -160,6 +171,44 @@ export function ForgotPasswordForm() {
       <FormError message={formError} />
       <Button type="submit" className="w-full" size="lg" loading={formState.isSubmitting}>
         Envoyer le lien
+      </Button>
+    </form>
+  );
+}
+
+export function ResetPasswordForm({ token }: { token: string }) {
+  const [formError, setFormError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const { register, handleSubmit, formState, setError } = useForm<z.input<typeof resetPasswordSchema>>({ resolver: zodResolver(resetPasswordSchema), defaultValues: { token, newPassword: "", confirmPassword: "" } });
+  const onSubmit = handleSubmit(async (v) => {
+    const res = await submitTo(() => resetPasswordAction(v), setError, setFormError);
+    if (res?.ok) setDone(res.message ?? "Mot de passe modifié.");
+  });
+  if (done) {
+    return (
+      <div className="space-y-4">
+        <Alert tone="success" icon={<MailCheck />} title="C'est fait">
+          {done}
+        </Alert>
+        <Button asChild className="w-full" size="lg">
+          <Link href="/login">Se connecter</Link>
+        </Button>
+      </div>
+    );
+  }
+  const e = formState.errors;
+  return (
+    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <input type="hidden" {...register("token")} />
+      <Field label="Nouveau mot de passe" required error={e.newPassword?.message} hint="8 caractères minimum, avec au moins une lettre et un chiffre.">
+        {(p) => <PasswordInput {...p} {...register("newPassword")} autoComplete="new-password" />}
+      </Field>
+      <Field label="Confirmation du mot de passe" required error={e.confirmPassword?.message}>
+        {(p) => <PasswordInput {...p} {...register("confirmPassword")} autoComplete="new-password" />}
+      </Field>
+      <FormError message={formError} />
+      <Button type="submit" className="w-full" size="lg" loading={formState.isSubmitting}>
+        Enregistrer le mot de passe
       </Button>
     </form>
   );

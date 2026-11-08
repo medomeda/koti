@@ -1,3 +1,4 @@
+import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -12,7 +13,7 @@ const PUBLIC = ["/login", "/register", "/forgot-password", "/reset-password", "/
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (PUBLIC.some((p) => pathname === p || pathname.startsWith(p))) return NextResponse.next();
-  if (request.cookies.has("koti_session")) return NextResponse.next();
+  if (getSessionCookie(request, { cookiePrefix: "koti" })) return NextResponse.next();
   // Visiteur sur la racine : site vitrine (l'URL reste « / »).
   if (pathname === "/") return NextResponse.rewrite(new URL("/bienvenue", request.url));
   const url = request.nextUrl.clone();

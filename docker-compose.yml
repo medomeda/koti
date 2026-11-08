@@ -29,6 +29,13 @@ services:
       KOTI_AUTO_MIGRATE: "1"
       # Généré et conservé par Coolify (secret des routes d'administration /api/v1/*).
       CRON_SECRET: ${SERVICE_HEX_64_CRONSECRET}
+      # Authentification (Better Auth) : secret généré par Coolify ; adresse publique à renseigner (ex. https://koti-demo.mondomaine.com).
+      BETTER_AUTH_SECRET: ${SERVICE_HEX_64_BETTERAUTHSECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      # E-mails (facultatif) : sans SMTP_URL, les messages sont seulement écrits dans les journaux du serveur.
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-KOTI <no-reply@koti.app>}
+      KOTI_REQUIRE_EMAIL_VERIFICATION: ${KOTI_REQUIRE_EMAIL_VERIFICATION:-0}
       KOTI_DEMO_MODE: ${KOTI_DEMO_MODE:-1}
       KOTI_ALLOW_DEMO_RESET: ${KOTI_ALLOW_DEMO_RESET:-0}
       # Derrière le proxy Traefik de Coolify : IP client lue dans X-Forwarded-For.

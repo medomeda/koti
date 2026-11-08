@@ -89,8 +89,8 @@ Le PRD demande de signaler les ambiguïtés : voici les choix faits, faciles à 
 | Aujourd'hui | Demain | Fichiers |
 |---|---|---|
 | ~~`store.ts` (mémoire + JSON)~~ ✅ fait | Drizzle + PostgreSQL via l'unité de travail (`server/db/uow`) et la façade `server/pg/services.ts` | `src/server/db/*`, `src/server/pg/*` |
-| Session/mot de passe maison | Better Auth (adaptateur Drizzle, vérification e-mail, reset) | `src/lib/auth/*`, `src/actions/auth.ts` |
-| Lien d'invitation affiché à l'admin | Envoi e-mail / SMS | `invitation.service.ts` (`createInvitation`) |
+| ~~Session/mot de passe maison~~ ✅ fait | Better Auth (adaptateur Drizzle, vérification e-mail, reset), hachage scrypt conservé | `src/server/auth.ts`, `src/lib/auth/session.ts`, `src/actions/auth.ts` |
+| Lien d'invitation affiché à l'admin | ✅ E-mail envoyé (SMTP) en plus du lien affiché ; SMS : à faire | `src/actions/members.ts`, `src/server/mail/*` |
 | Notifications internes seulement | + e-mails transactionnels (outbox) | `notification.service.ts` (`notify`) |
 | Pas de justificatif / photo | Stockage privé + téléchargement contrôlé | `declare-payment-dialog.tsx`, profil |
 | Rattrapage des tâches à la navigation | Cron externe → `/api/v1/jobs/run` | `src/server/jobs.ts` |
