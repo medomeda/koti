@@ -6,15 +6,10 @@ import type { Instrumentation } from "next";
  * le serveur ne démarre pas (mieux vaut un déploiement en erreur qu'une application sur un schéma obsolète).
  */
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  const { logError, logInfo } = await import("@/server/log");
-  // Arrêt brutal du processus : la cause est consignée avant la sortie (n'empêche pas l'arrêt).
-  process.on("uncaughtExceptionMonitor", (err) => logError("process", err, undefined, { message: "exception non interceptée : le processus s'arrête" }));
-  if (process.env.KOTI_AUTO_MIGRATE !== "1") return;
-  const { migrate } = await import("drizzle-orm/node-postgres/migrator");
-  const { getDb } = await import("@/server/db/client");
-  await migrate(getDb(), { migrationsFolder: "./drizzle" });
-  logInfo("startup", "migrations de la base appliquées");
+  // Le code propre à Node (process.on, migrations) vit dans un fichier à part : il n'est jamais analysé pour l'Edge Runtime.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await (await import("./instrumentation-node")).registerNode();
+  }
 }
 
 /**

@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto";
-
 /**
  * Journal technique de l'application (sortie d'erreur du serveur : « Runtime Logs » de Coolify, terminal en développement).
  *
@@ -19,7 +17,7 @@ export type LogLevel = "error" | "warn" | "info";
 /** Code de référence court, sans caractères ambigus (0/O, 1/I), à communiquer à l'équipe : « E-7K2P9Q ». */
 export function newRef(): string {
   const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const bytes = randomBytes(6);
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(6));
   return "E-" + [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
 }
 
