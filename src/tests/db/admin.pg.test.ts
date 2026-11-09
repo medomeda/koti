@@ -51,7 +51,6 @@ describe("Espace admin — accès", () => {
     await expect((async () => { (await pg.addClientNote(support(), { userId: awa, text: "Appel émis, pas de réponse." })); })()).resolves.toBeUndefined();
     await expect((async () => (await pg.suspendUser(support(), { userId: awa, reason: "Test" })))()).rejects.toThrow(/droits/);
     await expect((async () => (await pg.changeClientPlan(support(), { userId: awa, planId: "PRO", reason: "Test" })))()).rejects.toThrow(/droits/);
-    await expect((async () => (await pg.grantTrial(support(), { userId: awa, planId: "PRO", days: 14, reason: "Test" })))()).rejects.toThrow(/droits/);
   });
 
   it("un compte de l'équipe suspendu perd l'accès à l'espace d'administration", async () => {
@@ -158,15 +157,6 @@ describe("Espace admin — actions sur un compte", () => {
     expect((await pg.getClient(admin(), ahmed)).plan.id).toBe("ASSOCIATION");
     const log = await snap((s) => s.auditLogs.filter((a) => a.action === "admin.subscription.change").at(-1)!);
     expect(log).toMatchObject({ reason: "Demande du client par téléphone", actorId: admin().userId });
-  });
-
-  it("offrir un essai : l'offre passe en essai pour la durée choisie, même si l'essai avait été consommé", async () => {
-    const mariam = id("mariam@koti.demo");
-    (await pg.grantTrial(admin(), { userId: mariam, planId: "PRO", days: 21, reason: "Geste commercial" }));
-    const f = (await pg.getClient(admin(), mariam));
-    expect(f.subscription).toMatchObject({ planId: "PRO", status: "TRIAL", trialUsed: true });
-    expect(new Date(f.subscription!.trialEndsAt!).getTime() - Date.now()).toBeGreaterThan(20 * 86_400_000);
-    await expect((async () => (await pg.grantTrial(admin(), { userId: mariam, planId: "FREE", days: 10, reason: "x" })))()).rejects.toThrow(/offre payante/);
   });
 
   it("les notes internes sont enregistrées avec leur auteur et ne sortent jamais côté client", async () => {

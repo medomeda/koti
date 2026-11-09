@@ -1,6 +1,6 @@
 import "server-only";
 import type { Plan } from "@/lib/marketing/plans";
-import { addDays, parseISODate, toISODate, todayISO } from "@/lib/utils/dates";
+import { parseISODate, toISODate, todayISO } from "@/lib/utils/dates";
 import { audit } from "@/modules/audit/audit.service";
 import { assertClientAccount, isoNow, today, type Ctx } from "@/server/context";
 import { read, tx, type DbState } from "@/server/db/store";
@@ -9,21 +9,17 @@ import { newId } from "@/server/ids";
 import type { Invoice, ISODate, PlanId, Subscription } from "@/types/domain";
 import { allPlans, overages, planById, subscriptionOf, usageOf } from "./quota";
 
-export const TRIAL_DAYS = 14;
-
 /**
- * Mode de règlement des offres payantes. Tant que le paiement en ligne (Mobile Money) n'est pas branché
- * (KOTI_ONLINE_PAYMENTS différent de 1), le règlement est MANUEL : le client profite de l'essai gratuit, puis c'est
- * l'équipe KOTI qui active l'offre après réception du paiement. Sans activation, l'offre retombe sur le gratuit
- * à la fin de l'essai ou de la période payée : aucune facture n'est émise sans paiement constaté.
+ * Mode de règlement des offres payantes. Il n'y a pas d'essai : seule l'offre gratuite se prend librement. Tant que le
+ * paiement en ligne (Mobile Money) n'est pas branché (KOTI_ONLINE_PAYMENTS différent de 1), le règlement est MANUEL :
+ * l'équipe KOTI active l'offre payante après réception du paiement, et sans nouvelle activation l'offre retombe sur le
+ * gratuit à la fin de la période payée. Aucune facture n'est émise sans paiement constaté.
  */
 export const manualBilling = () => process.env.KOTI_ONLINE_PAYMENTS !== "1";
 
-/** Le client peut-il choisir lui-même cette offre ? (toujours oui en paiement en ligne ; sinon : gratuit, essai, ou baisse d'offre payante). */
-export function selfServiceAllowed(sub: Subscription | null | undefined, current: Plan, target: Plan): boolean {
+/** Le client peut-il choisir lui-même cette offre ? (en règlement manuel : le gratuit, ou une baisse d'offre payante). */
+export function selfServiceAllowed(_sub: Subscription | null | undefined, current: Plan, target: Plan): boolean {
   if (!manualBilling() || target.monthlyPrice === 0) return true;
-  if (!sub) return false;
-  if (sub.status === "TRIAL" || !sub.trialUsed) return true;
   return current.monthlyPrice > 0 && target.monthlyPrice < current.monthlyPrice;
 }
 
@@ -70,10 +66,10 @@ function invoiceFor(s: DbState, sub: Subscription, plan: Plan, periodStart: ISOD
 }
 
 /**
- * Changement d'offre (SIMULÉ : aucun paiement réel).
+ * Changement d'offre par le client (pas d'essai).
  * - vers une offre plus petite : refusé si l'usage actuel dépasse ses limites (le message liste quoi) ;
- * - première offre payante : essai gratuit de 14 jours, sans facture ;
- * - ensuite : facturation immédiate de la période, sans prorata (simplification de la démonstration) ;
+ * - offre payante : en règlement manuel, refusée au client (activation par l'équipe KOTI après paiement) ; en paiement
+ *   en ligne, facturation immédiate de la période, sans prorata ;
  * - retour au gratuit : effectif tout de suite, les factures déjà émises sont conservées.
  */
 export function changePlan(ctx: Ctx, planId: PlanId) {
@@ -94,10 +90,9 @@ export function changePlan(ctx: Ctx, planId: PlanId) {
 export function applyPlanChange(s: DbState, ctx: Ctx, targetUserId: string, planId: PlanId, auditAction: string, reason?: string) {
   const sub = subscriptionOf(s, targetUserId);
   if (!sub) throw new AppError("NOT_FOUND", "Abonnement introuvable.");
-  // Règlement manuel : l'équipe qui active l'offre (paiement reçu) peut aussi confirmer l'offre que le client essaie déjà.
-  const activation = manualBilling() && targetUserId !== ctx.userId && planById(s, planId).monthlyPrice > 0;
+  // Anciens essais (plus proposés) : confirmer la même offre la fait passer en offre payée.
   const fromTrial = sub.status === "TRIAL";
-  if (sub.planId === planId && !(activation && fromTrial)) throw conflict(targetUserId === ctx.userId ? "Vous êtes déjà sur cette offre." : "Ce client est déjà sur cette offre.");
+  if (sub.planId === planId && !fromTrial) throw conflict(targetUserId === ctx.userId ? "Vous êtes déjà sur cette offre." : "Ce client est déjà sur cette offre.");
   const target = planById(s, planId);
   const bad = overages(usageOf(s, targetUserId), target);
   if (bad.length > 0) {
@@ -114,17 +109,9 @@ export function applyPlanChange(s: DbState, ctx: Ctx, targetUserId: string, plan
     sub.currentPeriodStart = null;
     sub.currentPeriodEnd = null;
     sub.canceledAt = nowIso;
-  } else if (sub.status === "TRIAL" && !activation) {
-    // Changement d'offre pendant l'essai : l'essai continue, la première facture suivra à son terme.
-  } else if (!sub.trialUsed && !activation) {
-    sub.status = "TRIAL";
-    sub.trialUsed = true;
-    sub.canceledAt = null;
-    sub.trialEndsAt = new Date(ctx.now.getTime() + TRIAL_DAYS * 86_400_000).toISOString();
-    sub.currentPeriodStart = null;
-    sub.currentPeriodEnd = addDays(day, TRIAL_DAYS);
   } else {
     sub.status = "ACTIVE";
+    sub.trialEndsAt = null;
     sub.canceledAt = null;
     sub.currentPeriodStart = day;
     sub.currentPeriodEnd = addMonths(day, 1);
@@ -133,25 +120,6 @@ export function applyPlanChange(s: DbState, ctx: Ctx, targetUserId: string, plan
     if (upgraded) invoiceFor(s, sub, target, day, ctx.now);
   }
   audit(s, ctx, { tontineId: null, action: auditAction, entityType: "subscription", entityId: sub.id, oldValues: { userId: targetUserId, planId: before }, newValues: { userId: targetUserId, planId, status: sub.status }, reason: reason ?? null });
-}
-
-/** Essai offert par l'équipe KOTI (même si le client a déjà consommé son essai). L'usage doit tenir dans l'offre. */
-export function applyTrialGrant(s: DbState, ctx: Ctx, targetUserId: string, planId: PlanId, days: number, reason?: string) {
-  const sub = subscriptionOf(s, targetUserId);
-  if (!sub) throw new AppError("NOT_FOUND", "Abonnement introuvable.");
-  const target = planById(s, planId);
-  if (target.monthlyPrice === 0) throw new AppError("VALIDATION", "Un essai s'offre sur une offre payante.");
-  const bad = overages(usageOf(s, targetUserId), target);
-  if (bad.length > 0) throw new AppError("INVALID_STATE", `L'offre « ${target.name} » ne couvre pas l'usage actuel : ${bad.join(" ; ")}.`);
-  const before = { planId: sub.planId, status: sub.status };
-  sub.planId = planId;
-  sub.status = "TRIAL";
-  sub.trialUsed = true;
-  sub.canceledAt = null;
-  sub.trialEndsAt = new Date(ctx.now.getTime() + days * 86_400_000).toISOString();
-  sub.currentPeriodStart = null;
-  sub.currentPeriodEnd = addDays(today(ctx), days);
-  audit(s, ctx, { tontineId: null, action: "admin.trial.grant", entityType: "subscription", entityId: sub.id, oldValues: { userId: targetUserId, ...before }, newValues: { userId: targetUserId, planId, days }, reason: reason ?? null });
 }
 
 /**

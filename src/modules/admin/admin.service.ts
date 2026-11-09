@@ -1,6 +1,6 @@
 import "server-only";
 import { audit } from "@/modules/audit/audit.service";
-import { applyPlanChange, applyTrialGrant } from "@/modules/billing/billing.service";
+import { applyPlanChange } from "@/modules/billing/billing.service";
 import { PLANS } from "@/lib/marketing/plans";
 import { activeMemberCount, allPlans, overages, planById, planOf, subscriptionOf, usageOf, COUNTED_STATUSES } from "@/modules/billing/quota";
 import { effectiveObligationStatus } from "@/modules/contributions/contribution.service";
@@ -298,14 +298,6 @@ export function changeClientPlan(ctx: Ctx, input: { userId: string; planId: Plan
   });
 }
 
-export function grantTrial(ctx: Ctx, input: { userId: string; planId: PlanId; days: number; reason: string }) {
-  tx((s) => {
-    requirePlatform(s, ctx, "client.trial");
-    const target = targetClient(s, ctx, input.userId);
-    applyTrialGrant(s, ctx, target.id, input.planId, input.days, input.reason);
-  });
-}
-
 export function addClientNote(ctx: Ctx, input: { userId: string; text: string }) {
   tx((s) => {
     requirePlatform(s, ctx, "client.note");
@@ -437,7 +429,7 @@ function validatePlanInput(s: Readonly<DbState>, i: PlanInput) {
   if (!Number.isInteger(l.tontines) || l.tontines < 1 || l.tontines > 500) errors.tontines = "Entre 1 et 500.";
   if (!Number.isInteger(l.membersPerTontine) || l.membersPerTontine < 2 || l.membersPerTontine > 1000) errors.membersPerTontine = "Entre 2 et 1 000.";
   if (!Number.isInteger(l.ticketsPerTontine) || l.ticketsPerTontine < 1 || l.ticketsPerTontine > 5000) errors.ticketsPerTontine = "Entre 1 et 5 000.";
-  else if (!errors.membersPerTontine && l.ticketsPerTontine < l.membersPerTontine) errors.ticketsPerTontine = "Au moins autant de tickets que de membres (chaque membre a un ticket).";
+  else if (!errors.membersPerTontine && l.ticketsPerTontine < l.membersPerTontine) errors.ticketsPerTontine = "Le total de tickets de la tontine ne peut pas être inférieur au nombre de membres : chaque membre a au moins un ticket (ex. 10 membres → 10 tickets minimum, davantage si certains prennent plusieurs parts).";
   if (Object.keys(errors).length > 0) throw new AppError("VALIDATION", "Certains réglages sont invalides.", errors);
   void s;
 }

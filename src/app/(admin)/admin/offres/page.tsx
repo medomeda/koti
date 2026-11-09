@@ -55,7 +55,7 @@ export default async function AdminPlansPage() {
                 items={[
                   ["Tontines en cours", `${plan.limits.tontines}${plan.limits.tontines !== defaults.limits.tontines ? ` (origine : ${defaults.limits.tontines})` : ""}`],
                   ["Membres par tontine", `${plan.limits.membersPerTontine}${plan.limits.membersPerTontine !== defaults.limits.membersPerTontine ? ` (origine : ${defaults.limits.membersPerTontine})` : ""}`],
-                  ["Tickets par tontine", `${plan.limits.ticketsPerTontine}${plan.limits.ticketsPerTontine !== defaults.limits.ticketsPerTontine ? ` (origine : ${defaults.limits.ticketsPerTontine})` : ""}`],
+                  ["Tickets au total par tontine", `${plan.limits.ticketsPerTontine}${plan.limits.ticketsPerTontine !== defaults.limits.ticketsPerTontine ? ` (origine : ${defaults.limits.ticketsPerTontine})` : ""}`],
                   [
                     "Tickets multiples",
                     <span key="m" className="inline-flex items-center gap-1.5">

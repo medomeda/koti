@@ -54,7 +54,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ us
           suspended={suspended}
           currentPlan={c.plan.id}
           plans={c.plans}
-          can={{ suspend: platformCan(role, "client.suspend"), plan: platformCan(role, "client.plan"), trial: platformCan(role, "client.trial"), note: platformCan(role, "client.note") }}
+          can={{ suspend: platformCan(role, "client.suspend"), plan: platformCan(role, "client.plan"), note: platformCan(role, "client.note") }}
         />
       </div>
 

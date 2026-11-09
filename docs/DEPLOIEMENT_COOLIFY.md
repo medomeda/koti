@@ -91,9 +91,9 @@ La tâche est idempotente : un créneau horaire n'est traité qu'une fois, même
 ## 6 ter. Offres payantes : règlement manuel
 
 Tant que le paiement en ligne n'est pas branché (`KOTI_ONLINE_PAYMENTS=0`) :
-- tout client démarre sur l'offre **gratuite** ; il peut lancer seul **14 jours d'essai** d'une offre payante (sans facture, une seule fois) ;
-- à la fin de l'essai, sans activation, il **retombe sur le gratuit** (ses données restent, mais les limites du gratuit s'appliquent aux créations) ;
-- pour continuer, il vous contacte (bouton « Demander l'activation » → formulaire de contact) et règle par Mobile Money ou virement ;
+- tout client démarre sur l'offre **gratuite** (Découverte) ; **il n'y a pas d'essai** des offres payantes ;
+- il ne peut pas prendre seul une offre payante : le bouton « Demander l'activation » renvoie vers le formulaire de contact ;
+- il règle par Mobile Money ou virement ;
 - vous **activez l'offre** : Administration → Clients → fiche du client → *Changer d'offre* (indiquez la référence du paiement en motif). Une facture est émise et la période payée dure un mois ;
 - sans nouvelle activation, l'offre repasse au gratuit à la fin du mois : refaites le même geste à chaque règlement.
 
@@ -128,7 +128,7 @@ Un utilisateur qui rencontre une erreur inattendue voit un message générique a
 
 Pour une instance séparée destinée aux testeurs : mettre `KOTI_DEMO_MODE=1` (la base vide reçoit alors le jeu de données
 fictives, avec bandeau « Version de démonstration », comptes de test sur la connexion et page `/guide`) et, si besoin,
-`KOTI_ALLOW_DEMO_RESET=1`. Remise à zéro :
+`KOTI_ALLOW_DEMO_RESET=1`, ainsi que `KOTI_ONLINE_PAYMENTS=1` (l'historique de facturation fictif suppose le paiement en ligne). Remise à zéro :
 ```bash
 curl -X POST -H "Authorization: Bearer <SERVICE_HEX_64_CRONSECRET>" https://demo.mondomaine.com/api/v1/demo/reset
 ```

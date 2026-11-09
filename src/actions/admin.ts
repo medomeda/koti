@@ -11,7 +11,7 @@ import { authed as clientAuthed } from "./_shared";
 
 /** Toutes les actions de ce fichier sont destinées à l'équipe KOTI (le service revérifie rôle et permission). */
 const authed: typeof clientAuthed = (schema, raw, run) => clientAuthed(schema, raw, run, { allowStaff: true });
-import { acceptStaffInvitation, addClientNote, changeClientPlan, changeStaffRole, createAnnouncement, grantTrial, handleContactRequest, inviteStaff, previewPlanImpact, reactivateUser, reopenContactRequest, resetPlan, revokeStaffInvitation, setAnnouncementActive, setStaffStatus, suspendUser, updatePlan } from "@/server/pg/services";
+import { acceptStaffInvitation, addClientNote, changeClientPlan, changeStaffRole, createAnnouncement, handleContactRequest, inviteStaff, previewPlanImpact, reactivateUser, reopenContactRequest, resetPlan, revokeStaffInvitation, setAnnouncementActive, setStaffStatus, suspendUser, updatePlan } from "@/server/pg/services";
 
 /**
  * Actions de l'espace d'administration. Chaque appel revérifie, côté serveur, que l'utilisateur est un membre
@@ -41,13 +41,6 @@ export async function reactivateUserAction(raw: unknown) {
 export async function changeClientPlanAction(raw: unknown) {
   return authed(z.object({ userId: idSchema, planId: plan, reason }), raw, async (input, ctx) => {
     (await changeClientPlan(ctx, input));
-    done(input.userId);
-  });
-}
-
-export async function grantTrialAction(raw: unknown) {
-  return authed(z.object({ userId: idSchema, planId: plan, days: z.coerce.number().int().min(1).max(90), reason }), raw, async (input, ctx) => {
-    (await grantTrial(ctx, input));
     done(input.userId);
   });
 }

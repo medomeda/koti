@@ -42,7 +42,7 @@ export default async function PricingPage() {
                   <dd className="font-medium tabular-nums">jusqu&apos;à {p.limits.membersPerTontine}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className={p.highlighted ? "text-sidebar-foreground" : "text-muted-foreground"}>Tickets par tontine</dt>
+                  <dt className={p.highlighted ? "text-sidebar-foreground" : "text-muted-foreground"}>Tickets au total par tontine</dt>
                   <dd className="font-medium tabular-nums">jusqu&apos;à {p.limits.ticketsPerTontine}</dd>
                 </div>
               </dl>

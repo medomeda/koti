@@ -25,8 +25,7 @@ export default async function AccountPage() {
       <PageHeader title="Mon abonnement" description="Votre offre, votre consommation et vos factures." back={{ href: "/profile", label: "Profil" }} />
       {a.manual && (
         <Alert tone="brand" className="mb-5">
-          Chaque offre payante commence par 14 jours d&apos;essai gratuit. Ensuite, l&apos;équipe KOTI active votre offre dès réception de votre paiement :{" "}
-          <Link href="/contact" className="font-medium underline">contactez-nous</Link>. Le paiement en ligne arrivera plus tard.
+          Pour passer à une offre payante, <Link href="/contact" className="font-medium underline">contactez-nous</Link> : vous réglez par Mobile Money ou virement et l&apos;équipe KOTI active votre offre dès réception du paiement. Le paiement en ligne arrivera plus tard.
         </Alert>
       )}
 
@@ -88,7 +87,7 @@ export default async function AccountPage() {
         <h2 id="offres" className="mb-3 text-lg font-semibold">
           Changer d&apos;offre
         </h2>
-        <PlanPicker plans={a.plans} currentId={a.plan.id} blockers={a.blockers} selfService={a.selfService} trialAvailable={!sub?.trialUsed} manual={a.manual} />
+        <PlanPicker plans={a.plans} currentId={a.plan.id} blockers={a.blockers} selfService={a.selfService} />
       </section>
 
       <Card className="mt-8">

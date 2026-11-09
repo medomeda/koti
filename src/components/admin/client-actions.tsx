@@ -1,10 +1,10 @@
 "use client";
 
-import { Gift, MessageSquarePlus, Repeat, UserCheck, UserX } from "lucide-react";
+import { MessageSquarePlus, Repeat, UserCheck, UserX } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/actions/_shared";
-import { addClientNoteAction, changeClientPlanAction, grantTrialAction, reactivateUserAction, suspendUserAction } from "@/actions/admin";
+import { addClientNoteAction, changeClientPlanAction, reactivateUserAction, suspendUserAction } from "@/actions/admin";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
@@ -64,12 +64,10 @@ export function ClientActions({
   suspended: boolean;
   currentPlan: PlanId;
   plans: Plan[];
-  can: { suspend: boolean; plan: boolean; trial: boolean; note: boolean };
+  can: { suspend: boolean; plan: boolean; note: boolean };
 }) {
-  const [dialog, setDialog] = useState<"plan" | "trial" | "note" | "suspend" | null>(null);
+  const [dialog, setDialog] = useState<"plan" | "note" | "suspend" | null>(null);
   const [planId, setPlanId] = useState<PlanId>(plans.find((p) => p.id !== currentPlan)!.id);
-  const [trialPlan, setTrialPlan] = useState<PlanId>("PRO");
-  const [days, setDays] = useState("14");
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const close = (o: boolean) => {
@@ -79,7 +77,6 @@ export function ClientActions({
       setNote("");
     }
   };
-  const paid = plans.filter((p) => p.monthlyPrice > 0);
 
   return (
     <>
@@ -87,11 +84,6 @@ export function ClientActions({
         {can.plan && (
           <Button variant="outline" onClick={() => setDialog("plan")}>
             <Repeat /> Changer d&apos;offre
-          </Button>
-        )}
-        {can.trial && (
-          <Button variant="outline" onClick={() => setDialog("trial")}>
-            <Gift /> Offrir un essai
           </Button>
         )}
         {can.note && (
@@ -120,36 +112,6 @@ export function ClientActions({
         </Field>
         <Field label="Motif (journalisé)" required>
           {(p) => <Textarea {...p} rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. demande du client par téléphone" />}
-        </Field>
-      </FormDialog>
-
-      <FormDialog open={dialog === "trial"} onOpenChange={close} title={`Offrir un essai à ${name}`} description="L'essai est gratuit et sans facture. Il remplace l'offre actuelle pendant sa durée." submitLabel="Offrir l'essai" onSubmit={() => grantTrialAction({ userId, planId: trialPlan, days, reason }).then((r) => { if (r.ok) toast.success("Essai offert."); return r; })}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Offre essayée" required>
-            {(p) => (
-              <NativeSelect {...p} value={trialPlan} onChange={(e) => setTrialPlan(e.target.value as PlanId)}>
-                {paid.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
-          </Field>
-          <Field label="Durée" required>
-            {(p) => (
-              <NativeSelect {...p} value={days} onChange={(e) => setDays(e.target.value)}>
-                {["7", "14", "30", "60"].map((d) => (
-                  <option key={d} value={d}>
-                    {d} jours
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
-          </Field>
-        </div>
-        <Field label="Motif (journalisé)" required>
-          {(p) => <Textarea {...p} rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. geste commercial" />}
         </Field>
       </FormDialog>
 

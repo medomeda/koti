@@ -82,6 +82,6 @@ export const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "Comment payer une offre payante ?",
-    a: "Chaque offre payante commence par 14 jours d'essai gratuit, sans carte bancaire. Ensuite, l'équipe KOTI vous indique comment régler (Mobile Money ou virement) et active votre offre dès réception du paiement. Le paiement en ligne arrivera plus tard.",
+    a: "L'offre Découverte est gratuite. Pour une offre payante, contactez-nous : l'équipe KOTI vous indique comment régler (Mobile Money ou virement) et active votre offre dès réception du paiement. Le paiement en ligne arrivera plus tard.",
   },
 ];

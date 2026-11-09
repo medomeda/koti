@@ -123,7 +123,7 @@ export function PlanEditor({ plan, customized }: { plan: EditablePlan; customize
                 <Field label="Membres par tontine" required error={err("membersPerTontine")}>
                   {(p) => <Input {...p} type="number" inputMode="numeric" min={2} value={v.membersPerTontine} onChange={(e) => set("membersPerTontine", e.target.value)} />}
                 </Field>
-                <Field label="Tickets par tontine" required error={err("ticketsPerTontine")}>
+                <Field label="Tickets au total par tontine" required error={err("ticketsPerTontine")} hint="Parts de tous les membres réunis. Au moins autant que de membres : chacun a au moins 1 ticket.">
                   {(p) => <Input {...p} type="number" inputMode="numeric" min={1} value={v.ticketsPerTontine} onChange={(e) => set("ticketsPerTontine", e.target.value)} />}
                 </Field>
               </div>
@@ -131,7 +131,7 @@ export function PlanEditor({ plan, customized }: { plan: EditablePlan; customize
                 <input type="checkbox" className="mt-0.5 size-4 accent-[var(--primary)]" checked={v.multipleTickets} onChange={(e) => set("multipleTickets", e.target.checked)} />
                 <span>
                   <span className="font-medium">Tickets multiples autorisés</span>
-                  <span className="block text-muted-foreground">Un membre peut détenir plusieurs tickets dans la même tontine.</span>
+                  <span className="block text-muted-foreground">Un membre peut prendre plusieurs parts (tickets) dans la même tontine. Sinon, chaque membre n&apos;a qu&apos;un ticket.</span>
                 </span>
               </label>
 

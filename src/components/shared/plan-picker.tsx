@@ -16,13 +16,12 @@ import { ConfirmDialog } from "./confirm-dialog";
  * Choix de l'offre. Le bouton d'une offre impossible à prendre (usage trop important)
  * est désactivé et la raison affichée ; le serveur revérifie de toute façon.
  */
-export function PlanPicker({ plans, currentId, blockers, selfService, trialAvailable, manual }: { plans: Plan[]; currentId: PlanId; blockers: Record<PlanId, string[]>; selfService: Record<PlanId, boolean>; trialAvailable: boolean; manual: boolean }) {
+export function PlanPicker({ plans, currentId, blockers, selfService }: { plans: Plan[]; currentId: PlanId; blockers: Record<PlanId, string[]>; selfService: Record<PlanId, boolean> }) {
   const [target, setTarget] = useState<Plan | null>(null);
   const current = plans.find((p) => p.id === currentId)!;
 
   const describe = (p: Plan) => {
     if (p.monthlyPrice === 0) return "Retour à l'offre gratuite : effectif immédiatement. Les factures déjà émises restent disponibles.";
-    if (current.monthlyPrice === 0 && trialAvailable) return `Vous commencez par 14 jours d'essai gratuit, sans facture. Ensuite ${formatFCFA(p.monthlyPrice)} par mois : ${manual ? "l'équipe KOTI active votre offre après réception de votre paiement, sinon vous revenez au gratuit." : "facturé automatiquement."}`;
     if (p.monthlyPrice > current.monthlyPrice) return `Passage immédiat à ${formatFCFA(p.monthlyPrice)} par mois, facturé tout de suite, sans prorata.`;
     return `Le nouveau prix de ${formatFCFA(p.monthlyPrice)} par mois s'appliquera à la prochaine période.`;
   };

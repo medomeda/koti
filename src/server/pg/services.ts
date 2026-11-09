@@ -155,7 +155,6 @@ const onClient = (ctx: Ctx, userId: string): Scope => ({ users: [userId], people
 export const suspendUser = writes(admin.suspendUser, (ctx, i) => onClient(ctx, i.userId));
 export const reactivateUser = writes(admin.reactivateUser, (ctx, i) => onClient(ctx, i.userId));
 export const changeClientPlan = writes(admin.changeClientPlan, (ctx, i) => onClient(ctx, i.userId));
-export const grantTrial = writes(admin.grantTrial, (ctx, i) => onClient(ctx, i.userId));
 export const addClientNote = writes(admin.addClientNote, (ctx, i) => onClient(ctx, i.userId));
 export const updatePlan = writes(admin.updatePlan, staff);
 export const resetPlan = writes(admin.resetPlan, staff);

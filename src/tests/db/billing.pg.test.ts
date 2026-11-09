@@ -89,34 +89,28 @@ describe("Offres — abonnement et rôle plateforme", () => {
   });
 });
 
-describe("Abonnement — changement d'offre et facturation (simulée)", () => {
-  it("première offre payante : essai de 14 jours sans facture, puis facturation mensuelle idempotente", async () => {
+describe("Abonnement — changement d'offre et facturation", () => {
+  it("offre payante (paiement en ligne) : facturée tout de suite, sans essai, puis une facture par mois, sans doublon", async () => {
     const id = (await newClient());
     const t0 = new Date("2026-01-10T09:00:00Z");
     (await pg.changePlan(ctxFor(id, t0), "PRO"));
     let acc = (await pg.getAccount(ctxFor(id, t0)));
-    expect(acc.subscription).toMatchObject({ planId: "PRO", status: "TRIAL", trialUsed: true });
-    expect(acc.invoices).toHaveLength(0);
-    expect(acc.trialDaysLeft).toBe(14);
+    expect(acc.subscription).toMatchObject({ planId: "PRO", status: "ACTIVE", trialEndsAt: null });
+    expect(acc.invoices).toHaveLength(1);
+    expect(acc.invoices[0]).toMatchObject({ amount: 5000, planId: "PRO", periodStart: "2026-01-10" });
 
-    // Avant la fin de l'essai : rien. Après : première facture, puis une par mois.
-    await txn((s) => void runBilling(s, new Date("2026-01-20T09:00:00Z")));
-    expect(await snap((s) => s.invoices.filter((i) => i.userId === id).length)).toBe(0);
-    await txn((s) => void runBilling(s, new Date("2026-01-25T09:00:00Z")));
-    expect((await pg.getAccount(ctxFor(id))).invoices).toHaveLength(1);
     await txn((s) => void runBilling(s, new Date("2026-03-30T09:00:00Z")));
     await txn((s) => void runBilling(s, new Date("2026-03-30T09:00:00Z"))); // rejouée : aucun doublon
     acc = (await pg.getAccount(ctxFor(id)));
     expect(acc.invoices.map((i) => [i.periodStart, i.amount, i.planName]).reverse()).toEqual([
-      ["2026-01-24", 5000, "Organisateur"],
-      ["2026-02-24", 5000, "Organisateur"],
-      ["2026-03-24", 5000, "Organisateur"],
+      ["2026-01-10", 5000, "Organisateur"],
+      ["2026-02-10", 5000, "Organisateur"],
+      ["2026-03-10", 5000, "Organisateur"],
     ]);
     expect(new Set(acc.invoices.map((i) => i.number)).size).toBe(3);
-    expect(acc.subscription!.status).toBe("ACTIVE");
   });
 
-  it("après un essai déjà consommé, le retour sur une offre payante est facturé tout de suite", async () => {
+  it("retour au gratuit puis nouvelle offre payante : facturé tout de suite", async () => {
     const id = (await newClient());
     (await pg.changePlan(ctxFor(id), "PRO"));
     (await pg.changePlan(ctxFor(id), "FREE"));
@@ -125,7 +119,7 @@ describe("Abonnement — changement d'offre et facturation (simulée)", () => {
     (await pg.changePlan(ctxFor(id), "PRO"));
     const acc = (await pg.getAccount(ctxFor(id)));
     expect(acc.subscription!.status).toBe("ACTIVE");
-    expect(acc.invoices).toHaveLength(1);
+    expect(acc.invoices).toHaveLength(1); // même jour : une seule facture par début de période
     expect(acc.invoices[0]).toMatchObject({ amount: 5000, planId: "PRO" });
   });
 

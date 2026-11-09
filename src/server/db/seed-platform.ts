@@ -1,6 +1,6 @@
 import "server-only";
 import { addDays } from "@/lib/utils/dates";
-import { addClientNote, grantTrial, suspendUser } from "@/modules/admin/admin.service";
+import { addClientNote, suspendUser } from "@/modules/admin/admin.service";
 import { changePlan, runBilling } from "@/modules/billing/billing.service";
 import { acceptInvitation, createInvitation } from "@/modules/invitations/invitation.service";
 import { declarePayment, validatePayment } from "@/modules/payments/payment.service";
@@ -159,10 +159,6 @@ export function seedPlatformActivity(env: PlatformSeedEnv, res: PlatformSeedResu
       validatePayment(c(t.adminId, addDays(payDate, 1) <= T ? addDays(payDate, 1) : T, 18), pid);
     }
   }
-
-  // Essai offert par l'équipe à un client gratuit (se termine dans environ un jour : alerte du tableau de bord).
-  const freeOrganizer = res.organizerIds.find((id) => s.subscriptions.find((x) => x.userId === id)?.planId === "FREE" && s.tontines.filter((t) => t.creatorId === id).length === 1 && !s.subscriptions.find((x) => x.userId === id)!.trialUsed);
-  if (freeOrganizer) grantTrial(c(env.operatorId, addDays(T, -29), 10), { userId: freeOrganizer, planId: "PRO", days: 30, reason: "Geste commercial après un échange avec le client." });
 
   // Suspensions (comptes qui ne sont pas organisateurs actifs) et notes internes.
   const suspendable = res.clientIds.filter((id) => !res.organizerIds.includes(id));

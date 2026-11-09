@@ -56,20 +56,17 @@ describe.skipIf(!hasTestDb)("Règlement manuel des offres payantes", () => {
   const sub = (id: string) => snapshot(conn, (s) => ({ ...s.subscriptions.find((x) => x.userId === id)!, invoices: s.invoices.filter((i) => i.userId === id).length }));
   const operator = () => demo.users.find((u) => u.platformRole === "SUPER_ADMIN")!.id;
 
-  it("le client démarre seul l'essai, sans facture ; une fois l'essai fini sans paiement, il retombe sur le gratuit", async () => {
+  it("le client ne peut pas prendre seul une offre payante (pas d'essai) mais peut rester ou revenir au gratuit", async () => {
     const id = await newClient(1);
-    await pg.changePlan(ctxFor(id), "PRO");
-    expect(await sub(id)).toMatchObject({ planId: "PRO", status: "TRIAL", invoices: 0 });
-    // 15 jours plus tard : aucune facture, retour au gratuit.
-    await txn((s) => runBilling(s, new Date(Date.now() + 15 * 86_400_000)));
-    expect(await sub(id)).toMatchObject({ planId: "FREE", status: "ACTIVE", invoices: 0 });
+    await expect(pg.changePlan(ctxFor(id), "PRO")).rejects.toThrow(/activé par l'équipe KOTI/);
+    expect(await sub(id)).toMatchObject({ planId: "FREE", status: "ACTIVE", trialEndsAt: null, invoices: 0 });
   });
 
-  it("après l'essai, le client ne peut plus choisir seul une offre payante", async () => {
+  it("le compte affiche les offres payantes comme « à demander » (pas en libre-service)", async () => {
     const id = await newClient(2);
-    await pg.changePlan(ctxFor(id), "PRO");
-    await txn((s) => runBilling(s, new Date(Date.now() + 15 * 86_400_000)));
-    await expect(pg.changePlan(ctxFor(id), "PRO")).rejects.toThrow(/activé par l'équipe KOTI/);
+    const acc = await pg.getAccount(ctxFor(id));
+    expect(acc.manual).toBe(true);
+    expect(acc.selfService).toEqual({ FREE: true, PRO: false, ASSOCIATION: false });
   });
 
   it("l'équipe KOTI active l'offre après paiement : facture émise, période d'un mois ; sans renouvellement, retour au gratuit", async () => {
@@ -80,10 +77,10 @@ describe.skipIf(!hasTestDb)("Règlement manuel des offres payantes", () => {
     expect(await sub(id)).toMatchObject({ planId: "FREE", status: "ACTIVE", invoices: 1 });
   });
 
-  it("l'équipe peut confirmer l'offre que le client essaie déjà (paiement reçu pendant l'essai)", async () => {
+  it("un client payant peut baisser d'offre seul, pas monter", async () => {
     const id = await newClient(4);
-    await pg.changePlan(ctxFor(id), "PRO");
-    await pg.changeClientPlan(ctxFor(operator()), { userId: id, planId: "PRO", reason: "Paiement reçu" });
-    expect(await sub(id)).toMatchObject({ planId: "PRO", status: "ACTIVE", invoices: 1 });
+    await pg.changeClientPlan(ctxFor(operator()), { userId: id, planId: "ASSOCIATION", reason: "Paiement reçu" });
+    await expect(pg.changePlan(ctxFor(id), "PRO")).resolves.toBeUndefined();
+    await expect(pg.changePlan(ctxFor(id), "ASSOCIATION")).rejects.toThrow(/activé par l'équipe KOTI/);
   });
 });
