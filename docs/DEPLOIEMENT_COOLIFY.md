@@ -97,6 +97,13 @@ Tant que le paiement en ligne n'est pas branché (`KOTI_ONLINE_PAYMENTS=0`) :
 - vous **activez l'offre** : Administration → Clients → fiche du client → *Changer d'offre* (indiquez la référence du paiement en motif). Une facture est émise et la période payée dure un mois ;
 - sans nouvelle activation, l'offre repasse au gratuit à la fin du mois : refaites le même geste à chaque règlement.
 
+## 6 quater. Justificatifs de paiement
+
+Les captures d'écran de paiement sont compressées (WebP, ~100 à 250 Ko) et stockées **dans PostgreSQL** : elles sont donc
+couvertes par la sauvegarde du volume `pg-data`, sans volume de fichiers supplémentaire. Ordre de grandeur : 1 000
+paiements avec justificatif ≈ 150 à 250 Mo. Les justificatifs jamais joints à une déclaration sont purgés après 24 h
+par la tâche planifiée (section 6 bis).
+
 ## 7. Application installable (PWA) et mises à jour
 
 KOTI s'installe sur l'écran d'accueil (Android : bouton « Installer », iPhone : Partager → « Sur l'écran d'accueil »).

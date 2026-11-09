@@ -1,6 +1,7 @@
 import { ScrollText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TontineOptionsForm } from "@/components/forms/tontine-options-form";
 import { TontineSettingsForm } from "@/components/forms/tontine-settings-form";
 import { TransitionButton } from "@/components/shared/tontine-actions";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ export const metadata: Metadata = { title: "Paramètres de la tontine" };
 const ACTION_LABEL: Record<string, string> = {
   "tontine.create": "Création de la tontine",
   "tontine.update": "Modification des paramètres",
+  "tontine.options": "Options modifiées (justificatif, transparence)",
   "tontine.activate": "Démarrage",
   "tontine.pause": "Suspension",
   "tontine.resume": "Reprise",
@@ -89,6 +91,18 @@ export default async function SettingsPage({ params }: { params: Promise<{ tonti
                 maxTicketsPerMember: tontine.maxTicketsPerMember,
               }}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Options de la tontine</CardTitle>
+              <CardDescription>Modifiables à tout moment, même une fois la tontine démarrée. Vos choix sont journalisés.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <TontineOptionsForm key={tontine.updatedAt} tontineId={tontine.id} readOnly={readOnly} initial={{ paymentProofMode: tontine.paymentProofMode, membersSeePayments: tontine.membersSeePayments }} />
           </CardContent>
         </Card>
 

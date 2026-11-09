@@ -1,5 +1,5 @@
 import { pgEnum } from "drizzle-orm/pg-core";
-import { CONTACT_TOPICS, FREQUENCIES, PAYMENT_METHODS, ROTATION_MODES, TONTINE_STATUSES } from "@/types/domain";
+import { CONTACT_TOPICS, FREQUENCIES, PAYMENT_METHODS, PAYMENT_PROOF_MODES, ROTATION_MODES, TONTINE_STATUSES } from "@/types/domain";
 
 /**
  * Énumérations PostgreSQL. Les valeurs reprennent exactement celles de `src/types/domain.ts` :
@@ -21,6 +21,7 @@ export const invitationStatus = pgEnum("invitation_status", ["PENDING", "ACCEPTE
 export const periodStatus = pgEnum("period_status", ["OPEN", "CLOSED"]);
 /** LATE n'est jamais stocké : il se calcule (échéance passée, non payée, sans déclaration en cours). */
 export const obligationStatus = pgEnum("obligation_status", ["PENDING", "DECLARED", "PAID", "REJECTED"]);
+export const paymentProofMode = pgEnum("payment_proof_mode", PAYMENT_PROOF_MODES);
 export const paymentMethod = pgEnum("payment_method", PAYMENT_METHODS);
 export const paymentStatus = pgEnum("payment_status", ["DECLARED", "PAID", "REJECTED"]);
 export const rotationStatus = pgEnum("rotation_status", ["UPCOMING", "CURRENT", "COMPLETED", "CANCELLED"]);

@@ -9,7 +9,7 @@ import { displayName, isoNow, requireAccess, today, type Ctx } from "@/server/co
 import { read, tx, type DbState } from "@/server/db/store";
 import { AppError, conflict, invalidState, notFound } from "@/server/errors";
 import { newId } from "@/server/ids";
-import type { ContributionObligation, ISODate, ObligationStatus, Payment, PaymentMethod, TontineStatus } from "@/types/domain";
+import type { ContributionObligation, ISODate, ObligationStatus, Payment, PaymentMethod, TontineStatus, PaymentProofMode } from "@/types/domain";
 
 const PAYABLE_TONTINE: TontineStatus[] = ["ACTIVE", "PAUSED"];
 
@@ -34,6 +34,11 @@ export interface ObligationView {
   /** Dernière déclaration refusée et pas encore remplacée (indépendant de l'affichage « En retard »). */
   rejected: boolean;
   canDeclare: boolean;
+  /** Échéance de l'utilisateur lui-même (l'historique détaillé et les justificatifs ne sont ouverts que pour celles-là et aux administrateurs). */
+  mine: boolean;
+  /** Options de la tontine utiles à l'écran de déclaration. */
+  paymentProofMode: PaymentProofMode;
+  membersSeePayments: boolean;
 }
 
 export interface PaymentView {
@@ -48,10 +53,13 @@ export interface PaymentView {
   validatedAt: string | null;
   validatedByName: string | null;
   rejectionReason: string;
+  /** Justificatif joint (lisible par le membre concerné et les administrateurs seulement). */
+  proofId: string | null;
 }
 
 function toPaymentView(s: Readonly<DbState>, p: Payment): PaymentView {
   return {
+    proofId: p.proofId ?? null,
     id: p.id,
     amount: p.amount,
     paymentDate: p.paymentDate,
@@ -68,6 +76,14 @@ function toPaymentView(s: Readonly<DbState>, p: Payment): PaymentView {
 
 function paymentsOf(s: Readonly<DbState>, obligationId: string) {
   return s.payments.filter((p) => p.obligationId === obligationId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * Vue « transparence » d'un paiement d'un AUTRE membre : l'état, le montant, la date et le mode seulement. La référence
+ * de transaction, le commentaire, le motif de refus et le justificatif restent réservés au membre et aux administrateurs.
+ */
+function publicPaymentView(p: PaymentView): PaymentView {
+  return { ...p, reference: "", comment: "", rejectionReason: "", proofId: null };
 }
 
 function toObligationView(s: Readonly<DbState>, o: ContributionObligation, t: ISODate, myMemberIds: Set<string>): ObligationView {
@@ -92,6 +108,9 @@ function toObligationView(s: Readonly<DbState>, o: ContributionObligation, t: IS
     status: effectiveObligationStatus(o, t),
     lastPayment: last ? toPaymentView(s, last) : null,
     rejected: o.status === "REJECTED",
+    mine: myMemberIds.has(o.memberId),
+    paymentProofMode: tontine.paymentProofMode,
+    membersSeePayments: tontine.membersSeePayments,
     canDeclare: myMemberIds.has(o.memberId) && member.status === "ACTIVE" && (o.status === "PENDING" || o.status === "REJECTED") && PAYABLE_TONTINE.includes(tontine.status),
   };
 }
@@ -112,15 +131,35 @@ export function listMyObligations(ctx: Ctx) {
   });
 }
 
-/** Vue d'une tontine : l'administrateur voit tout, le membre ne voit que ses propres lignes. */
+/** Résumé de la période en cours pour la transparence : combien de cotisations réglées / en attente / en retard. */
+function summaryOf(s: Readonly<DbState>, tontineId: string, rows: ObligationView[], t: ISODate) {
+  const due = rows.filter((r) => r.dueDate <= t);
+  const paid = due.filter((r) => r.status === "PAID").length;
+  const late = due.filter((r) => r.status === "LATE").length;
+  const declared = rows.filter((r) => r.status === "DECLARED").length;
+  const active = s.tontineMembers.filter((m) => m.tontineId === tontineId && m.status === "ACTIVE");
+  const lateMembers = new Set(rows.filter((r) => r.status === "LATE").map((r) => r.memberId));
+  return { dueCount: due.length, paidCount: paid, lateCount: late, declaredCount: declared, membersUpToDate: active.filter((m) => !lateMembers.has(m.id)).length, memberCount: active.length };
+}
+
+/**
+ * Vue d'une tontine : l'administrateur voit tout ; le membre voit ses propres lignes, et celles des autres membres
+ * (sans leurs justificatifs ni références) seulement si l'administrateur a activé l'option « transparence ».
+ */
 export function listTontineObligations(ctx: Ctx, tontineId: string) {
   return read((s) => {
     const { tontine, member } = requireAccess(s, ctx, tontineId, "payment.viewOwn");
     const t = today(ctx);
     const isAdmin = member.role === "ADMIN";
     const mine = new Set([member.id]);
-    const source = s.contributionObligations.filter((o) => o.tontineId === tontineId && (isAdmin || o.memberId === member.id));
-    const rows = source.map((o) => toObligationView(s, o, t, mine)).sort((a, b) => b.periodNumber - a.periodNumber || a.memberName.localeCompare(b.memberName, "fr"));
+    const sharing = tontine.membersSeePayments;
+    const source = s.contributionObligations.filter((o) => o.tontineId === tontineId && (isAdmin || sharing || o.memberId === member.id));
+    const rows = source
+      .map((o) => {
+        const view = toObligationView(s, o, t, mine);
+        return isAdmin || o.memberId === member.id || !view.lastPayment ? view : { ...view, lastPayment: publicPaymentView(view.lastPayment) };
+      })
+      .sort((a, b) => b.periodNumber - a.periodNumber || a.memberName.localeCompare(b.memberName, "fr"));
     const stats = isAdmin
       ? {
           totalExpected: sumAmounts(source.filter((o) => o.dueDate <= t).map((o) => o.expectedAmount)),
@@ -135,7 +174,9 @@ export function listTontineObligations(ctx: Ctx, tontineId: string) {
         }
       : null;
     const periods = [...new Set(rows.map((r) => r.periodNumber))].sort((a, b) => b - a);
-    return { tontine, role: member.role, rows, stats, periods };
+    // Résumé collectif, visible des membres seulement en mode transparence.
+    const summary = sharing || isAdmin ? summaryOf(s, tontineId, rows, t) : null;
+    return { tontine, role: member.role, rows, stats, periods, sharing, summary };
   });
 }
 
@@ -158,7 +199,7 @@ export function getObligationHistory(ctx: Ctx, obligationId: string) {
  */
 export function declarePayment(
   ctx: Ctx,
-  input: { obligationId: string; amount: number; paymentDate: ISODate; paymentMethod: PaymentMethod; reference: string; comment: string },
+  input: { obligationId: string; amount: number; paymentDate: ISODate; paymentMethod: PaymentMethod; reference: string; comment: string; proofId?: string },
 ): string {
   return tx((s) => {
     const o = s.contributionObligations.find((x) => x.id === input.obligationId);
@@ -169,6 +210,9 @@ export function declarePayment(
     if (o.status === "DECLARED") throw conflict("Une déclaration est déjà en attente de validation pour cette échéance.");
     if (o.status === "PAID") throw conflict("Cette échéance est déjà réglée.");
     if (input.paymentDate > today(ctx)) throw new AppError("VALIDATION", "La date de paiement ne peut pas être dans le futur.", { paymentDate: "Date future non autorisée." });
+    // Option « justificatif » de la tontine. (Que le justificatif appartienne bien à ce membre est vérifié avant, dans la façade.)
+    if (tontine.paymentProofMode === "REQUIRED" && !input.proofId) throw new AppError("VALIDATION", "L'administrateur exige un justificatif de paiement (capture d'écran ou photo du reçu).", { proof: "Justificatif obligatoire." });
+    if (tontine.paymentProofMode === "OFF" && input.proofId) throw new AppError("VALIDATION", "Cette tontine n'utilise pas de justificatif de paiement.", { proof: "Justificatif non utilisé." });
 
     const id = newId();
     s.payments.push({
@@ -184,6 +228,7 @@ export function declarePayment(
       validatedBy: null,
       validatedAt: null,
       rejectionReason: "",
+      ...(input.proofId ? { proofId: input.proofId } : {}),
       createdAt: isoNow(ctx),
       updatedAt: isoNow(ctx),
     });
@@ -202,7 +247,7 @@ export function declarePayment(
         resourceId: id,
       });
     }
-    audit(s, ctx, { tontineId: tontine.id, action: "payment.declare", entityType: "payment", entityId: id, newValues: { obligationId: o.id, amount: input.amount, method: input.paymentMethod } });
+    audit(s, ctx, { tontineId: tontine.id, action: "payment.declare", entityType: "payment", entityId: id, newValues: { obligationId: o.id, amount: input.amount, method: input.paymentMethod, proof: Boolean(input.proofId) } });
     return id;
   });
 }

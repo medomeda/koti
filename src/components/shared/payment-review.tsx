@@ -1,5 +1,6 @@
 "use client";
 
+import { ProofButton } from "@/components/shared/proof-viewer";
 import { Check, History, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -122,6 +123,7 @@ export function HistoryButton({ obligationId, label }: { obligationId: string; l
                     </p>
                     <p className="text-xs text-muted-foreground">Déclaré {formatDateTime(p.declaredAt)}</p>
                     {p.comment && <p className="mt-1 text-sm">« {p.comment} »</p>}
+                    {p.proofId && <ProofButton proofId={p.proofId} />}
                     {p.status === "PAID" && p.validatedAt && (
                       <p className="mt-1 text-xs text-primary-soft-foreground">
                         Validé par {p.validatedByName} · {formatDateTime(p.validatedAt)}

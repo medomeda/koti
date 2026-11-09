@@ -11,7 +11,7 @@ import { assertClientAccount, isoNow, requireAccess, today, type Ctx } from "@/s
 import { read, tx, type DbState } from "@/server/db/store";
 import { AppError, invalidState } from "@/server/errors";
 import { newId } from "@/server/ids";
-import type { FrequencyConfig, ISODate, MemberRole, Tontine, TontineStatus, Weekday } from "@/types/domain";
+import type { FrequencyConfig, ISODate, MemberRole, PaymentProofMode, Tontine, TontineStatus, Weekday } from "@/types/domain";
 
 function frequencyConfigOf(v: TontineFormValues): FrequencyConfig {
   if (v.frequency !== "TWICE_WEEKLY") return {};
@@ -47,6 +47,8 @@ export function createTontine(ctx: Ctx, v: TontineFormValues): string {
       rotationMode: v.rotationMode,
       ...ticketPolicyOf(v),
       nextTicketNumber: 1,
+      paymentProofMode: "OPTIONAL",
+      membersSeePayments: false,
       status: "DRAFT",
       pauses: [],
       creatorId: ctx.userId,
@@ -93,6 +95,24 @@ export function updateTontine(ctx: Ctx, input: { tontineId: string; name: string
     }
     tontine.updatedAt = isoNow(ctx);
     audit(s, ctx, { tontineId: tontine.id, action: "tontine.update", entityType: "tontine", entityId: tontine.id, oldValues: old, newValues: { name: tontine.name, description: tontine.description, contributionAmount: tontine.contributionAmount, frequency: tontine.frequency, startDate: tontine.startDate, expectedMemberCount: tontine.expectedMemberCount, multipleTicketsAllowed: tontine.multipleTicketsAllowed, maxTicketsPerMember: tontine.maxTicketsPerMember } });
+  });
+}
+
+/**
+ * Options que l'administrateur active ou désactive À TOUT MOMENT (même tontine démarrée), contrairement aux paramètres
+ * financiers verrouillés au démarrage : justificatif de paiement (aucun / facultatif / obligatoire) et transparence
+ * (les membres voient l'état des paiements de tous). Journalisé ; ne change jamais les paiements déjà déclarés.
+ */
+export function updateTontineOptions(ctx: Ctx, input: { tontineId: string; paymentProofMode: PaymentProofMode; membersSeePayments: boolean }) {
+  tx((s) => {
+    const { tontine } = requireAccess(s, ctx, input.tontineId, "tontine.update");
+    if (tontine.status === "COMPLETED" || tontine.status === "CANCELLED") throw invalidState("Une tontine clôturée est en lecture seule.");
+    const old = { paymentProofMode: tontine.paymentProofMode, membersSeePayments: tontine.membersSeePayments };
+    if (old.paymentProofMode === input.paymentProofMode && old.membersSeePayments === input.membersSeePayments) return;
+    tontine.paymentProofMode = input.paymentProofMode;
+    tontine.membersSeePayments = input.membersSeePayments;
+    tontine.updatedAt = isoNow(ctx);
+    audit(s, ctx, { tontineId: tontine.id, action: "tontine.options", entityType: "tontine", entityId: tontine.id, oldValues: old, newValues: { paymentProofMode: input.paymentProofMode, membersSeePayments: input.membersSeePayments } });
   });
 }
 

@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { DeclarePaymentButton } from "@/components/shared/declare-payment-dialog";
 import { HistoryButton, ReviewActions } from "@/components/shared/payment-review";
+import { ProofButton } from "@/components/shared/proof-viewer";
 import { ObligationStatusBadge } from "@/components/shared/status";
 import { Avatar } from "@/components/ui/misc";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,22 +12,23 @@ import { formatFCFA, sumAmounts } from "@/lib/utils/money";
 import type { ObligationView } from "@/modules/payments/payment.service";
 
 function declareTarget(o: ObligationView) {
-  return { id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, ticketLabel: o.ticketLabel, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null };
+  return { id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, ticketLabel: o.ticketLabel, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null, proofMode: o.paymentProofMode, sharing: o.membersSeePayments };
 }
 
 function hasPrimaryAction(o: ObligationView, isAdmin: boolean) {
-  return (isAdmin && o.status === "DECLARED" && !!o.lastPayment) || o.canDeclare;
+  return (isAdmin && o.status === "DECLARED" && !!o.lastPayment) || o.canDeclare || !!o.lastPayment?.proofId;
 }
 
 function RowActions({ o, isAdmin, withHistory = true }: { o: ObligationView; isAdmin: boolean; withHistory?: boolean }) {
   const p = o.lastPayment;
   return (
     <div className="flex items-center justify-end gap-1.5">
+      {p?.proofId && <ProofButton proofId={p.proofId} />}
       {isAdmin && o.status === "DECLARED" && p && (
         <ReviewActions paymentId={p.id} memberName={o.memberName} amount={p.amount} expectedAmount={o.expectedAmount} method={PAYMENT_METHOD_LABEL[p.paymentMethod]} reference={p.reference} paymentDate={p.paymentDate} />
       )}
       {o.canDeclare && <DeclarePaymentButton target={declareTarget(o)} label={o.rejected ? "Redéclarer" : "Déclarer"} />}
-      {withHistory && <HistoryButton obligationId={o.id} label={`${o.memberName} · ${o.ticketLabel} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />}
+      {withHistory && (isAdmin || o.mine) && <HistoryButton obligationId={o.id} label={`${o.memberName} · ${o.ticketLabel} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />}
     </div>
   );
 }
@@ -35,8 +37,8 @@ function RowActions({ o, isAdmin, withHistory = true }: { o: ObligationView; isA
  * Lignes d'échéances : tableau sur desktop, liste sur mobile.
  * `hide` retire la colonne qui sert déjà de regroupement (« period » ou « member »).
  */
-export function ObligationsTable({ rows, isAdmin, hide }: { rows: ObligationView[]; isAdmin: boolean; hide?: "member" | "period" }) {
-  const showMember = isAdmin && hide !== "member";
+export function ObligationsTable({ rows, isAdmin, hide, showMembers = false }: { rows: ObligationView[]; isAdmin: boolean; hide?: "member" | "period"; showMembers?: boolean }) {
+  const showMember = (isAdmin || showMembers) && hide !== "member";
   const showPeriod = hide !== "period";
   return (
     <>
@@ -57,7 +59,7 @@ export function ObligationsTable({ rows, isAdmin, hide }: { rows: ObligationView
                 <p className="font-semibold tabular-nums">{formatFCFA(o.lastPayment?.amount ?? o.expectedAmount)}</p>
                 <div className="mt-0.5 flex items-center justify-end gap-1">
                   <ObligationStatusBadge status={o.status} />
-                  <HistoryButton obligationId={o.id} label={`${o.memberName} · ${o.ticketLabel} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />
+                  {(isAdmin || o.mine) && <HistoryButton obligationId={o.id} label={`${o.memberName} · ${o.ticketLabel} · échéance n°${o.periodNumber} du ${formatDate(o.dueDate)}`} />}
                 </div>
               </div>
             </div>
@@ -156,7 +158,7 @@ function summarize(rows: ObligationView[]) {
  * Section repliable (élément natif <details> : accessible au clavier, sans JavaScript).
  * Ouverte par défaut si elle demande une action (validation, retard) ou si elle est la première.
  */
-export function ObligationGroupSection({ group, isAdmin, hide, defaultOpen }: { group: ObligationGroup; isAdmin: boolean; hide: "member" | "period"; defaultOpen: boolean }) {
+export function ObligationGroupSection({ group, isAdmin, hide, defaultOpen, showMembers = false }: { group: ObligationGroup; isAdmin: boolean; hide: "member" | "period"; defaultOpen: boolean; showMembers?: boolean }) {
   const s = summarize(group.rows);
   const pct = s.total ? Math.round((s.paid / s.total) * 100) : 0;
   return (
@@ -193,7 +195,7 @@ export function ObligationGroupSection({ group, isAdmin, hide, defaultOpen }: { 
         </div>
       )}
       <div className="border-t bg-card">
-        <ObligationsTable rows={group.rows} isAdmin={isAdmin} hide={hide} />
+        <ObligationsTable rows={group.rows} isAdmin={isAdmin} hide={hide} showMembers={showMembers} />
       </div>
     </details>
   );

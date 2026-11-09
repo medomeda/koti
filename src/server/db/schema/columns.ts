@@ -1,3 +1,4 @@
+import { customType } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { date, timestamp, uuid } from "drizzle-orm/pg-core";
 
@@ -13,3 +14,8 @@ export const instant = (name: string) => timestamp(name, { withTimezone: true, m
 export const createdAt = () => instant("created_at").notNull().defaultNow();
 export const updatedAt = () => instant("updated_at").notNull().defaultNow();
 export const day = (name: string) => date(name, { mode: "string" });
+
+/** Données binaires (justificatifs de paiement). */
+export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
+});

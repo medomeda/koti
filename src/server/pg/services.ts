@@ -20,10 +20,12 @@ import { ensureReady } from "@/server/db/ready";
 import { jobRuns } from "@/server/db/schema";
 import type { Ctx } from "@/server/context";
 import { getDb } from "@/server/db/client";
+import { logWarn } from "@/server/log";
 import { pgTx, type Scope } from "@/server/db/uow";
 import { invitationRef, tontineOfObligation, tontineOfPayment } from "@/server/db/uow/resolve";
 import { reads, readsVia, writes, writesVia } from "@/server/db/uow/wrap";
 import { runOnState } from "@/server/db/store";
+import { assertProofUsable, purgeOrphanProofs } from "@/server/proofs";
 
 /**
  * Façade PostgreSQL de tous les services métier (phase 2).
@@ -44,6 +46,7 @@ export const getProfileStats = reads(userStats.getProfileStats, (ctx) => ofUser(
 /* ------------------------------------------------------------------ Tontines */
 export const createTontine = writes(tontines.createTontine, (ctx) => ofUser(ctx));
 export const updateTontine = writes(tontines.updateTontine, (ctx, i) => onTontine(ctx, i.tontineId));
+export const updateTontineOptions = writes(tontines.updateTontineOptions, (ctx, i) => onTontine(ctx, i.tontineId));
 export const changeTontineStatus = writes(tontines.changeTontineStatus, (ctx, tontineId) => onTontine(ctx, tontineId));
 export const listMyTontines = reads(tontines.listMyTontines, (ctx) => ofUser(ctx));
 export const getTontineAccess = reads(tontines.getTontineAccess, (ctx, id) => onTontine(ctx, id));
@@ -106,7 +109,12 @@ const ofPayment = async (ctx: Ctx, paymentId: string): Promise<Scope> => {
 export const listMyObligations = reads(payments.listMyObligations, (ctx) => ofUser(ctx));
 export const listTontineObligations = reads(payments.listTontineObligations, (ctx, id) => onTontine(ctx, id));
 export const getObligationHistory = readsVia(payments.getObligationHistory, (ctx, obligationId) => ofObligation(ctx, obligationId));
-export const declarePayment = writesVia(payments.declarePayment, (ctx, i) => ofObligation(ctx, i.obligationId));
+const declarePaymentWrite = writesVia(payments.declarePayment, (ctx, i) => ofObligation(ctx, i.obligationId));
+/** Déclaration : si un justificatif est joint, on vérifie d'abord qu'il est bien à ce membre, pour cette tontine, et inutilisé. */
+export async function declarePayment(ctx: Ctx, input: Parameters<typeof payments.declarePayment>[1]): Promise<string> {
+  if (input.proofId) await assertProofUsable(ctx.userId, input.proofId, input.obligationId);
+  return declarePaymentWrite(ctx, input);
+}
 export const validatePayment = writesVia(payments.validatePayment, (ctx, paymentId) => ofPayment(ctx, paymentId));
 export const rejectPayment = writesVia(payments.rejectPayment, (ctx, i) => ofPayment(ctx, i.paymentId));
 
@@ -136,7 +144,10 @@ export async function runScheduledJobs(now = new Date(), opts: { force?: boolean
     const [done] = await getDb().select({ key: jobRuns.key }).from(jobRuns).where(eq(jobRuns.key, hourlySlotKey(now))).limit(1);
     if (done) return { skipped: true as const };
   }
-  return runJobsWrite(now, opts);
+  const result = await runJobsWrite(now, opts);
+  // Hors transaction métier : nettoyage des justificatifs envoyés mais jamais joints à une déclaration.
+  if (!("skipped" in result)) await purgeOrphanProofs().catch((err) => logWarn("jobs", "purge des justificatifs orphelins impossible", undefined, err));
+  return result;
 }
 
 /* ------------------------------------------------------------------ Administration de la plateforme */

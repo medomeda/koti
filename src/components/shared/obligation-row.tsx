@@ -30,7 +30,7 @@ export function ObligationRow({ o, today, showTontine = true }: { o: ObligationV
         <ObligationStatusBadge status={o.status} />
         {o.canDeclare && (
           <DeclarePaymentButton
-            target={{ id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, ticketLabel: o.ticketLabel, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null }}
+            target={{ id: o.id, tontineName: o.tontineName, expectedAmount: o.expectedAmount, dueDate: o.dueDate, periodNumber: o.periodNumber, ticketLabel: o.ticketLabel, rejectionReason: o.rejected ? o.lastPayment?.rejectionReason : null, proofMode: o.paymentProofMode, sharing: o.membersSeePayments }}
             label={o.rejected ? "Redéclarer" : "Déclarer"}
           />
         )}

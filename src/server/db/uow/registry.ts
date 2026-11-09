@@ -36,7 +36,7 @@ export const REGISTRY: Record<TableKey, TableDef> = {
   invitations: def(t.invitations, ["id"]),
   contributionPeriods: def(t.contributionPeriods, ["id"]),
   contributionObligations: def(t.contributionObligations, ["id"]),
-  payments: def(t.payments, ["id"]),
+  payments: def(t.payments, ["id"], ["proofId"]),
   rotationSlots: def(t.rotationSlots, ["id"]),
   notifications: def(t.notifications, ["id"]),
   auditLogs: def(t.auditLogs, ["id"]),

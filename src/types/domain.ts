@@ -162,6 +162,10 @@ export interface Tontine {
   maxTicketsPerMember: number;
   /** Prochain numéro de ticket : jamais réutilisé, même après suppression avant démarrage. */
   nextTicketNumber: number;
+  /** Option : justificatif (capture d'écran, photo du reçu) joint aux déclarations de paiement. */
+  paymentProofMode: PaymentProofMode;
+  /** Option « transparence » : tous les membres voient l'état des paiements de tous les membres. */
+  membersSeePayments: boolean;
   status: TontineStatus;
   /** Fenêtres de suspension : les échéances qui y tombent ne sont jamais réclamées. */
   pauses: Array<{ from: ISODate; to: ISODate | null }>;
@@ -243,9 +247,15 @@ export interface ContributionObligation {
   updatedAt: ISODateTime;
 }
 
+/** OFF : pas de justificatif ; OPTIONAL : possible, jamais exigé ; REQUIRED : exigé pour déclarer un paiement. */
+export const PAYMENT_PROOF_MODES = ["OFF", "OPTIONAL", "REQUIRED"] as const;
+export type PaymentProofMode = (typeof PAYMENT_PROOF_MODES)[number];
+
 export interface Payment {
   id: string;
   obligationId: string;
+  /** Justificatif joint (image compressée stockée à part, voir `server/proofs.ts`). */
+  proofId?: string;
   amount: number;
   paymentDate: ISODate;
   paymentMethod: PaymentMethod;

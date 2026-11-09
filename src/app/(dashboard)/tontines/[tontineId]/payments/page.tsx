@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PaymentsToolbar, type PaymentsView } from "@/components/shared/payments-toolbar";
 import { ObligationGroupSection, ObligationsTable, type ObligationGroup } from "@/components/shared/tontine-payments";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState, StatCard } from "@/components/ui/feedback";
+import { Alert, EmptyState, StatCard } from "@/components/ui/feedback";
 import { Pagination } from "@/components/ui/pagination";
 import { guard } from "@/lib/auth/guard";
 import { requireUser } from "@/lib/auth/session";
@@ -49,15 +49,17 @@ export default async function TontinePaymentsPage({ params, searchParams }: { pa
   const { tontineId } = await params;
   const sp = await searchParams;
   const user = await requireUser();
-  const { tontine, role, rows, stats, periods } = (await guard(async () => (await listTontineObligations(ctxFor(user.id), tontineId))));
+  const { tontine, role, rows, stats, periods, sharing, summary } = (await guard(async () => (await listTontineObligations(ctxFor(user.id), tontineId))));
   const isAdmin = role === "ADMIN";
+  /** Administrateur, ou membre quand l'administrateur a activé la transparence : toutes les lignes sont visibles. */
+  const showAll = isAdmin || sharing;
 
   // Filtres validés contre les valeurs existantes : une URL modifiée à la main ne casse rien.
   const memberOptions = [...new Map(rows.map((r) => [r.memberId, r.memberName])).entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "fr"));
   const status = STATUS_FILTERS.includes(sp.status as ObligationStatus) ? (sp.status as ObligationStatus) : "ALL";
   const period = periods.includes(Number(sp.period)) ? Number(sp.period) : 0;
-  const member = isAdmin && memberOptions.some((m) => m.value === sp.member) ? sp.member! : "";
-  const view: PaymentsView = isAdmin ? (VIEWS.includes(sp.view as PaymentsView) ? (sp.view as PaymentsView) : "period") : "list";
+  const member = showAll && memberOptions.some((m) => m.value === sp.member) ? sp.member! : "";
+  const view: PaymentsView = showAll ? (VIEWS.includes(sp.view as PaymentsView) ? (sp.view as PaymentsView) : "period") : "list";
 
   const matchesStatus = (r: ObligationView, s: ObligationStatus | "ALL") => s === "ALL" || (s === "REJECTED" ? r.rejected : r.status === s);
   const inScope = (r: ObligationView) => (!period || r.periodNumber === period) && (!member || r.memberId === member);
@@ -79,7 +81,7 @@ export default async function TontinePaymentsPage({ params, searchParams }: { pa
   const pages = Math.max(1, Math.ceil(unit / perPage));
   const page = Math.min(pages, Math.max(1, Number(sp.page) || 1));
   const slice = <T,>(items: T[]) => items.slice((page - 1) * perPage, page * perPage);
-  const listRows = view === "list" ? slice([...filtered].sort((a, b) => (isAdmin && status === "ALL" ? urgency(a) - urgency(b) : 0) || b.periodNumber - a.periodNumber || a.memberName.localeCompare(b.memberName, "fr"))) : [];
+  const listRows = view === "list" ? slice([...filtered].sort((a, b) => (showAll && status === "ALL" ? urgency(a) - urgency(b) : 0) || b.periodNumber - a.periodNumber || a.memberName.localeCompare(b.memberName, "fr"))) : [];
 
   const periodOptions = periods.map((p) => {
     const due = rows.find((r) => r.periodNumber === p)?.dueDate;
@@ -99,15 +101,25 @@ export default async function TontinePaymentsPage({ params, searchParams }: { pa
         </section>
       )}
 
+      {!isAdmin && summary && (
+        <section aria-label="Situation de la tontine" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Cotisations réglées" value={`${summary.paidCount}/${summary.dueCount}`} tone="success" hint="Échéances arrivées à terme" />
+          <StatCard label="En attente" value={summary.declaredCount} tone={summary.declaredCount ? "warning" : "neutral"} hint="Déclarées, à valider" />
+          <StatCard label="Retards" value={summary.lateCount} tone={summary.lateCount ? "danger" : "neutral"} />
+          <StatCard label="Membres à jour" value={`${summary.membersUpToDate}/${summary.memberCount}`} tone="success" />
+        </section>
+      )}
+      {!isAdmin && sharing && <Alert tone="brand">L&apos;administrateur a activé la transparence : chacun voit l&apos;état et le montant des paiements des autres membres. Les justificatifs et références restent privés.</Alert>}
+
       <Card>
         <CardHeader className="block space-y-3">
           <div>
-            <CardTitle>{isAdmin ? "Cotisations des membres" : "Mes cotisations"}</CardTitle>
+            <CardTitle>{showAll ? "Cotisations des membres" : "Mes cotisations"}</CardTitle>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {isAdmin ? (memberName ? `Filtré sur ${memberName}${period ? `, échéance n°${period}` : ""}.` : period ? `Échéance n°${period}.` : "Toutes les échéances générées.") : "Seules vos propres échéances sont visibles."}
+              {isAdmin ? (memberName ? `Filtré sur ${memberName}${period ? `, échéance n°${period}` : ""}.` : period ? `Échéance n°${period}.` : "Toutes les échéances générées.") : sharing ? "Toutes les échéances de la tontine." : "Seules vos propres échéances sont visibles."}
             </p>
           </div>
-          {isAdmin && rows.length > 0 && <PaymentsToolbar view={view} period={period} member={member} periods={periodOptions} members={memberOptions} />}
+          {showAll && rows.length > 0 && <PaymentsToolbar view={view} period={period} member={member} periods={periodOptions} members={memberOptions} />}
         </CardHeader>
         <nav aria-label="Filtrer par statut" className="scrollbar-thin flex gap-1.5 overflow-x-auto border-b px-4 py-2.5 sm:px-5">
           {STATUS_FILTERS.map((s) => (
@@ -138,14 +150,14 @@ export default async function TontinePaymentsPage({ params, searchParams }: { pa
           <>
             <div>
               {slice(grouped).map((g, i) => (
-                <ObligationGroupSection key={g.key} group={g} isAdmin={isAdmin} hide={view === "period" ? "period" : "member"} defaultOpen={(page === 1 && i === 0) || grouped.length === 1} />
+                <ObligationGroupSection key={g.key} group={g} isAdmin={isAdmin} showMembers={showAll} hide={view === "period" ? "period" : "member"} defaultOpen={(page === 1 && i === 0) || grouped.length === 1} />
               ))}
             </div>
             <Pagination page={page} pages={pages} total={grouped.length} unit={view === "period" ? "échéances" : "membres"} hrefFor={(pg) => href({ page: pg })} />
           </>
         ) : (
           <>
-            <ObligationsTable rows={listRows} isAdmin={isAdmin} />
+            <ObligationsTable rows={listRows} isAdmin={isAdmin} showMembers={showAll} />
             <Pagination page={page} pages={pages} total={filtered.length} hrefFor={(pg) => href({ page: pg })} />
           </>
         )}

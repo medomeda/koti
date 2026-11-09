@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, index, integer, jsonb, pgTable, text, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { FrequencyConfig, ISODate } from "@/types/domain";
-import { createdAt, day, id, instant, updatedAt } from "./columns";
+import { bytea, createdAt, day, id, instant, updatedAt } from "./columns";
 import {
   frequency,
   invitationStatus,
@@ -10,6 +10,7 @@ import {
   notificationType,
   obligationStatus,
   paymentMethod,
+  paymentProofMode,
   paymentStatus,
   periodStatus,
   rotationCycleStatus,
@@ -37,6 +38,8 @@ export const tontines = pgTable(
     maxTicketsPerMember: integer("max_tickets_per_member").notNull().default(1),
     /** Compteur : un numéro de ticket n'est jamais réutilisé, même après suppression avant démarrage. */
     nextTicketNumber: integer("next_ticket_number").notNull().default(1),
+    paymentProofMode: paymentProofMode("payment_proof_mode").notNull().default("OPTIONAL"),
+    membersSeePayments: boolean("members_see_payments").notNull().default(false),
     status: tontineStatus("status").notNull().default("DRAFT"),
     /** Fenêtres de suspension : [{ from, to|null }]. */
     pauses: jsonb("pauses").$type<Array<{ from: ISODate; to: ISODate | null }>>().notNull().default([]),
@@ -158,6 +161,27 @@ export const contributionObligations = pgTable(
   ],
 );
 
+/**
+ * Justificatifs de paiement : image déjà compressée (WebP), stockée dans la base pour être sauvegardée avec le reste.
+ * Table volontairement hors de l'état applicatif (octets jamais chargés par l'unité de travail) ; un justificatif
+ * envoyé mais jamais joint à une déclaration est purgé par la tâche horaire.
+ */
+export const paymentProofs = pgTable(
+  "payment_proofs",
+  {
+    id: id(),
+    tontineId: uuid("tontine_id").notNull().references(() => tontines.id, { onDelete: "cascade" }),
+    uploadedBy: uuid("uploaded_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+    mimeType: text("mime_type").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    data: bytea("data").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("payment_proofs_tontine_idx").on(t.tontineId), index("payment_proofs_uploader_idx").on(t.uploadedBy, t.createdAt)],
+);
+
 export const payments = pgTable(
   "payments",
   {
@@ -173,10 +197,12 @@ export const payments = pgTable(
     validatedBy: uuid("validated_by").references(() => users.id, { onDelete: "restrict" }),
     validatedAt: instant("validated_at"),
     rejectionReason: text("rejection_reason").notNull().default(""),
+    proofId: uuid("proof_id").references(() => paymentProofs.id, { onDelete: "set null" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
+    uniqueIndex("payments_proof_unique").on(t.proofId).where(sql`${t.proofId} is not null`),
     index("payments_obligation_idx").on(t.obligationId),
     // Au plus une déclaration en attente ou validée par obligation (une déclaration refusée peut être refaite).
     uniqueIndex("payments_one_open_per_obligation").on(t.obligationId).where(sql`${t.status} in ('DECLARED','PAID')`),

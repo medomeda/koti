@@ -5,7 +5,7 @@ import type {
   MemberStatus,
   NotificationType,
   ObligationStatus,
-  PaymentMethod,
+  PaymentMethod, PaymentProofMode,
   PaymentStatus,
   RotationStatus,
   TontineStatus,
@@ -103,4 +103,11 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   PAYMENT_VALIDATED: "Paiement validé",
   PAYMENT_REJECTED: "Paiement refusé",
   ROTATION_SOON: "Tour de main",
+};
+
+/** Option « justificatif de paiement » d'une tontine. */
+export const PAYMENT_PROOF_MODE_LABEL: Record<PaymentProofMode, { label: string; help: string }> = {
+  OFF: { label: "Aucun justificatif", help: "Les membres déclarent leur paiement sans pièce jointe." },
+  OPTIONAL: { label: "Justificatif facultatif", help: "Les membres peuvent joindre une capture d'écran ou une photo du reçu ; ce n'est jamais exigé." },
+  REQUIRED: { label: "Justificatif obligatoire", help: "Un paiement ne peut être déclaré qu'avec une capture d'écran ou une photo du reçu. Les déclarations déjà faites ne changent pas." },
 };

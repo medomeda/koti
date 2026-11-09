@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { idSchema, tontineFormSchema, tontineUpdateSchema } from "@/lib/validations";
 import { authed } from "./_shared";
-import { changeTontineStatus, createTontine, updateTontine } from "@/server/pg/services";
+import { changeTontineStatus, createTontine, updateTontine, updateTontineOptions } from "@/server/pg/services";
+import { PAYMENT_PROOF_MODES } from "@/types/domain";
 
 export async function createTontineAction(raw: unknown) {
   return authed(tontineFormSchema, raw, async (input, ctx) => {
@@ -19,6 +20,16 @@ const updateWithFinancial = tontineUpdateSchema.extend({ financial: tontineFormS
 export async function updateTontineAction(raw: unknown) {
   return authed(updateWithFinancial, raw, async (input, ctx) => {
     (await updateTontine(ctx, input));
+    revalidatePath(`/tontines/${input.tontineId}`, "layout");
+  });
+}
+
+const optionsSchema = z.object({ tontineId: idSchema, paymentProofMode: z.enum(PAYMENT_PROOF_MODES), membersSeePayments: z.boolean() });
+
+/** Options de la tontine (justificatif, transparence) : l'administrateur les change à tout moment. */
+export async function updateTontineOptionsAction(raw: unknown) {
+  return authed(optionsSchema, raw, async (input, ctx) => {
+    (await updateTontineOptions(ctx, input));
     revalidatePath(`/tontines/${input.tontineId}`, "layout");
   });
 }

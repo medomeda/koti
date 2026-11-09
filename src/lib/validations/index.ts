@@ -142,6 +142,8 @@ export const declarePaymentSchema = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS, { message: "Mode de paiement requis." }),
   reference: z.string().trim().max(60, "60 caractères maximum."),
   comment: z.string().trim().max(500, "500 caractères maximum."),
+  /** Justificatif préalablement envoyé (POST /api/v1/proofs). */
+  proofId: z.string().uuid().optional(),
 });
 export type DeclarePaymentInput = z.input<typeof declarePaymentSchema>;
 
