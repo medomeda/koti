@@ -1,4 +1,4 @@
-# Déploiement Coolify : application KOTI + base PostgreSQL (production par défaut ; démonstration : KOTI_DEMO_MODE=1).
+# Déploiement Coolify : application KOTI + base PostgreSQL (phase de test : démonstration active par défaut ; production : KOTI_DEMO_MODE=0).
 # Guide : docs/DEPLOIEMENT_COOLIFY.md
 services:
   db:
@@ -46,8 +46,9 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contact@koti.app}
-      # 1 uniquement pour une instance de démonstration (bandeau, comptes fictifs, page /guide).
-      KOTI_DEMO_MODE: ${KOTI_DEMO_MODE:-0}
+      # Phase de test : démonstration active par défaut (bandeau, comptes fictifs, page /guide, données importées dans une base vide).
+      # Passer à 0 pour la production réelle.
+      KOTI_DEMO_MODE: ${KOTI_DEMO_MODE:-1}
       KOTI_ALLOW_DEMO_RESET: ${KOTI_ALLOW_DEMO_RESET:-0}
       # Derrière le proxy Traefik de Coolify : IP client lue dans X-Forwarded-For.
       TRUST_PROXY: ${TRUST_PROXY:-1}

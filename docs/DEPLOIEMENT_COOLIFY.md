@@ -49,7 +49,7 @@ Connexion de l'équipe : `https://votre-domaine/admin/login` (le lien n'apparaî
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
-| `KOTI_DEMO_MODE` | `0` | `1` = instance de démonstration (bandeau, page `/guide`, comptes fictifs). Laisser à `0` en production. |
+| `KOTI_DEMO_MODE` | `1` | **Phase de test : actif par défaut** (bandeau, page `/guide`, comptes fictifs, données importées dans une base vide). Mettre `0` pour la production réelle, puis repartir d'une base vide. |
 | `KOTI_ALLOW_DEMO_RESET` | `0` | Démonstration seulement : bouton « Réinitialiser la démo ». |
 | `KOTI_ONLINE_PAYMENTS` | `0` | `0` = **règlement manuel** des offres payantes (voir section 6 ter). `1` = paiement en ligne (pas encore disponible). |
 | `BETTER_AUTH_URL` | *(à renseigner)* | Adresse publique **https** de l'application, sans `:3700` (ex. `https://koti-demo.mondomaine.com`) : sert aux liens des e-mails et à la vérification d'origine. |

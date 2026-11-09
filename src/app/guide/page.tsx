@@ -7,7 +7,7 @@ import { DemoBanner } from "@/components/layout/demo-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isDemoMode } from "@/lib/demo";
-import { DEMO_ACCOUNTS, DEMO_PASSWORD, DEMO_STAFF } from "@/server/db/seed";
+import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/server/db/seed";
 
 export const metadata: Metadata = { title: "Guide du testeur" };
 // KOTI_DEMO_MODE est lu à l'exécution (Coolify), pas au build : pas de pré-rendu statique.
@@ -50,25 +50,12 @@ const SCENARIOS: Array<{ title: string; as: string; steps: string[] }> = [
     ],
   },
   {
-    title: "Changer d'offre et voir les limites",
+    title: "Voir les offres et les limites",
     as: "Mariam (offre gratuite)",
     steps: [
       "Tontines → Nouvelle tontine : la limite d'une tontine en cours est atteinte, le bouton est bloqué.",
-      "Profil → Gérer mon abonnement : consultez votre consommation et choisissez l'offre Organisateur (essai de 14 jours, aucun paiement réel).",
-      "Revenez créer une tontine : c'est maintenant possible, tickets multiples compris. Connectée en Ahmed, consultez aussi ses factures simulées.",
-    ],
-  },
-  {
-    title: "Piloter la plateforme",
-    as: "Équipe KOTI (super-admin)",
-    steps: [
-      "Ouvrez la connexion de l'administration (/admin/login, lien « Équipe KOTI ? » sur la page de connexion) avec operateur@koti.demo : vous arrivez dans l'administration. Un compte d'équipe n'a pas d'espace client : pour voir l'application comme un client, utilisez un compte client. Parcourez le tableau de bord (inscriptions, revenu, entonnoir, alertes).",
-      "Clients : recherchez, filtrez par offre ou statut, ouvrez une fiche. Essayez « Ajouter une note », « Offrir un essai », puis « Suspendre le compte » sur un client.",
-      "Reconnectez-vous en support@koti.demo : vous consultez et annotez, mais les actions sensibles ne sont pas proposées.",
-      "Offres : modifiez le prix ou une limite de l'offre Organisateur. L'aperçu indique combien de clients dépasseraient les nouvelles limites ; le site (/tarifs) est mis à jour tout de suite.",
-      "Messages : ouvrez « Messages », cliquez « Marquer comme traité » et notez la réponse. Annonces (super-admin) : publiez « Maintenance programmée » ; reconnectez-vous en ahmed@koti.demo pour voir le bandeau et le fermer. Journal : toutes ces actions y figurent avec leur auteur.",
-      "Équipe (super-admin) : « Inviter un collaborateur » avec un rôle, copiez le lien, ouvrez-le dans une fenêtre privée, créez le compte avec l'adresse invitée puis « Rejoindre l'équipe ». Essayez ensuite « Passer en Super-admin » ou « Désactiver l'accès ».",
-      "Tontines : vous ne voyez que des chiffres agrégés, jamais le détail des paiements des membres.",
+      "Profil → Gérer mon abonnement : consultez votre consommation ; les offres payantes : leur bouton est « Demander l'activation » (il n'y a pas d'essai ; l'équipe KOTI active l'offre après paiement).",
+      "Connectée en Ahmed (offre Organisateur de démonstration), vous pouvez créer plusieurs tontines, avec tickets multiples, et consulter ses factures.",
     ],
   },
   {
@@ -104,17 +91,6 @@ export default function GuidePage() {
             </p>
             <ul className="divide-y rounded-lg border">
               {DEMO_ACCOUNTS.map((a) => (
-                <li key={a.email} className="flex flex-col px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="font-medium">{a.fullName}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {a.email} · {a.hint}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-sm font-medium">Équipe KOTI (administration)</p>
-            <ul className="divide-y rounded-lg border">
-              {DEMO_STAFF.map((a) => (
                 <li key={a.email} className="flex flex-col px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="font-medium">{a.fullName}</span>
                   <span className="text-sm text-muted-foreground">
