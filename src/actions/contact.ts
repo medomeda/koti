@@ -5,6 +5,7 @@ import { contactSchema } from "@/lib/validations";
 import { AppError } from "@/server/errors";
 import { fieldErrorsOf, rateLimit, type ActionResult } from "./_shared";
 import { submitContactRequest } from "@/server/pg/services";
+import { toFailure } from "./_shared";
 
 async function clientKey(): Promise<string> {
   if (process.env.TRUST_PROXY !== "1") return "global";
@@ -22,7 +23,6 @@ export async function submitContactAction(raw: unknown): Promise<ActionResult> {
     return { ok: true, data: undefined };
   } catch (err) {
     if (err instanceof AppError) return { ok: false, error: err.message };
-    console.error("[koti] contact en échec", err);
-    return { ok: false, error: "Une erreur inattendue est survenue. Réessayez." };
+    return toFailure(err, { form: "contact" });
   }
 }

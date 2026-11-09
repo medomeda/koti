@@ -7,6 +7,7 @@ import { ensureReady } from "../ready";
 import { deliverPush } from "@/modules/push/push.service";
 import { emptyState, SCHEMA_VERSION, type DbState } from "../store";
 import { canonical, INSERT_ORDER, keyOf, REGISTRY, toDomain, toRow, type TableKey } from "./registry";
+import { logError } from "@/server/log";
 
 /**
  * Unité de travail PostgreSQL (phase 2).
@@ -257,7 +258,7 @@ export async function pgTx<T>(scope: Scope, fn: (s: DbState) => T, db: Db = getD
         const created = state.notifications.filter((n) => !known.has(n.id)).map(({ id, userId, type, tontineId }) => ({ id, userId, type, tontineId }));
         return { result, created };
       });
-      if (created.length) void deliverPush(created, db).catch((err) => console.error("[koti:push] livraison en échec", err instanceof Error ? err.message : err));
+      if (created.length) void deliverPush(created, db).catch((err) => logError("push", err, undefined, { message: "livraison des notifications push en échec" }));
       return result;
     } catch (err) {
       const code = sqlState(err);

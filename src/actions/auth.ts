@@ -10,6 +10,7 @@ import { getAuth, REALM_HEADER, requireEmailVerification } from "@/server/auth";
 import { mailIsConfigured } from "@/server/mail";
 import { failureLimiter, fieldErrorsOf, rateLimit, safeNext, type ActionResult } from "./_shared";
 import { platformRoleOf, signUp } from "@/server/pg/services";
+import { logError } from "@/server/log";
 
 /**
  * IP client, uniquement derrière UN proxy de confiance (TRUST_PROXY=1, ex. Traefik de Coolify).
@@ -100,7 +101,7 @@ export async function registerAction(raw: unknown, next?: string): Promise<Actio
   const auth = getAuth();
   // Confirmation d'adresse : envoyée dès qu'un courrier est configuré ; bloquante seulement si elle est exigée.
   if (mailIsConfigured()) {
-    await auth.api.sendVerificationEmail({ body: { email, callbackURL: safeNext(next) }, headers: await headers() }).catch((err) => console.error("[koti] e-mail de confirmation non envoyé", err instanceof Error ? err.message : err));
+    await auth.api.sendVerificationEmail({ body: { email, callbackURL: safeNext(next) }, headers: await headers() }).catch((err) => logError("auth.verification-email", err));
   }
   if (requireEmailVerification()) return { ok: true, data: undefined, message: "Compte créé. Un e-mail de confirmation vous a été envoyé : cliquez sur le lien pour activer votre accès, puis connectez-vous." };
   const session = await openSession(email, password);
@@ -113,7 +114,7 @@ export async function forgotPasswordAction(raw: unknown): Promise<ActionResult> 
   const parsed = forgotPasswordSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Adresse e-mail invalide.", fieldErrors: fieldErrorsOf(parsed.error) };
   if (!rateLimit(`forgot:${parsed.data.email}`, 5, 15 * 60_000)) return { ok: false, error: "Trop de demandes. Réessayez plus tard." };
-  await getAuth().api.requestPasswordReset({ body: { email: parsed.data.email, redirectTo: "/reset-password" }, headers: await headers() }).catch((err) => console.error("[koti] demande de réinitialisation en échec", err instanceof Error ? err.message : err));
+  await getAuth().api.requestPasswordReset({ body: { email: parsed.data.email, redirectTo: "/reset-password" }, headers: await headers() }).catch((err) => logError("auth.password-reset", err));
   return { ok: true, data: undefined, message: "Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé. Il est valable une heure." };
 }
 

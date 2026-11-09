@@ -106,6 +106,10 @@ passera sur le domaine de production.
 | Page « Service momentanément indisponible » | L'application ne joint pas PostgreSQL (service `db` arrêté ou `DATABASE_URL` erroné). `/api/ready` répond alors 503 (`/api/health` reste 200). Elle se rétablit seule quand la base revient. |
 | `app` redémarre en boucle | La base n'est pas prête ou `DATABASE_URL` est incorrect : voir les Runtime Logs (message de migration). |
 
+## 8 bis. Journaux et codes d'erreur
+
+Un utilisateur qui rencontre une erreur inattendue voit un message générique avec un **code** (ex. `E-7K2P9Q`, ou un nombre pour une page). Dans **Runtime Logs** de Coolify, chaque événement est une ligne JSON : cherchez ce code (champ `ref`) pour obtenir l'erreur complète, sa cause, la requête concernée et la pile d'appels. Niveaux : `error`, `warn` (ex. base injoignable), `info`. Aucun mot de passe, jeton ni valeur de requête SQL n'y figure.
+
 ## 9. Ce que cette version n'est pas
 
 Une instance de **démonstration** : pas d'e-mails réels, comptes publics, pas d'e-mails sans `SMTP_URL`.

@@ -4,6 +4,7 @@ import { getSession, type SessionUser } from "@/lib/auth/session";
 import { isBarredFromClientSpace } from "@/lib/permissions/platform";
 import { ctxFor, type Ctx } from "@/server/context";
 import { isDatabaseUnavailable } from "@/server/db/availability";
+import { logError, logWarn } from "@/server/log";
 import { AppError } from "@/server/errors";
 
 export type ActionResult<T = undefined> = { ok: true; data: T; message?: string } | { ok: false; error: string; fieldErrors?: Record<string, string> };
@@ -17,15 +18,22 @@ export function fieldErrorsOf(error: z.ZodError): Record<string, string> {
   return out;
 }
 
-function toFailure(err: unknown): ActionResult<never> {
+/**
+ * Traduit une erreur en réponse pour l'utilisateur. Une erreur métier (AppError) porte son propre message.
+ * Toute autre erreur reçoit un message GÉNÉRIQUE avec un code de référence ; le détail complet est dans les journaux
+ * du serveur, sous ce même code.
+ */
+export function toFailure(err: unknown, context: Record<string, unknown> = {}): ActionResult<never> {
   if (err instanceof AppError) {
     if (err.code === "UNAUTHENTICATED") return { ok: false, error: "Votre session a expiré. Reconnectez-vous." };
     return { ok: false, error: err.message, fieldErrors: err.fieldErrors };
   }
-  if (isDatabaseUnavailable(err)) return { ok: false, error: "Service momentanément indisponible. Réessayez dans quelques instants." };
-  // Erreur inattendue : détail journalisé côté serveur uniquement, jamais renvoyé au client.
-  console.error("[koti] action en échec", err);
-  return { ok: false, error: "Une erreur inattendue est survenue. Réessayez." };
+  if (isDatabaseUnavailable(err)) {
+    logWarn("action", "base de données injoignable", context, err);
+    return { ok: false, error: "Service momentanément indisponible. Réessayez dans quelques instants." };
+  }
+  const ref = logError("action", err, context);
+  return { ok: false, error: `Une erreur inattendue est survenue. Réessayez ; si cela se reproduit, communiquez le code ${ref} à l'équipe KOTI.` };
 }
 
 /**
@@ -43,7 +51,7 @@ export async function authed<S extends z.ZodType, T>(schema: S, raw: unknown, ru
   try {
     return { ok: true, data: await run(parsed.data, ctxFor(user.id), user) };
   } catch (err) {
-    return toFailure(err);
+    return toFailure(err, { userId: user.id });
   }
 }
 

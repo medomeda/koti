@@ -43,7 +43,8 @@ export async function enablePush(publicKey: string): Promise<{ ok: true } | { ok
     if (!res.ok) return { ok: false, reason: "failed", message: res.error };
     return { ok: true };
   } catch (err) {
-    return { ok: false, reason: "failed", message: err instanceof Error ? err.message : "L'abonnement a échoué." };
+    console.warn("[koti] abonnement push impossible", err); // console du navigateur uniquement : l'utilisateur ne voit pas le détail
+    return { ok: false, reason: "failed", message: "L'activation a échoué sur cet appareil. Réessayez, ou utilisez un autre navigateur." };
   }
 }
 

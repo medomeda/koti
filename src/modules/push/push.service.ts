@@ -7,6 +7,7 @@ import { pushPreferences, pushSubscriptions } from "@/server/db/schema";
 import type { Ctx } from "@/server/context";
 import { AppError } from "@/server/errors";
 import type { Notification, NotificationType } from "@/types/domain";
+import { logError } from "@/server/log";
 
 /**
  * Notifications push (Web Push, clés VAPID). Elles doublent les notifications internes (l'application reste la
@@ -122,7 +123,7 @@ async function sendToSubscriptions(subs: Array<typeof pushSubscriptions.$inferSe
         } catch (err) {
           const status = (err as { statusCode?: number }).statusCode;
           if (status === 404 || status === 410) dead.push(s.id); // abonnement expiré ou révoqué : on l'oublie
-          else console.error("[koti:push] envoi en échec", status ?? "", err instanceof Error ? err.message : err);
+          else logError("push", err, { status }, { message: "envoi d'une notification push en échec" });
         }
       }),
     );

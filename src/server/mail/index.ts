@@ -1,5 +1,6 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
+import { logError } from "@/server/log";
 
 /**
  * Envoi d'e-mails transactionnels (vérification d'adresse, réinitialisation de mot de passe, invitations).
@@ -21,6 +22,7 @@ export const mailIsConfigured = () => Boolean(process.env.SMTP_URL);
 export async function sendMail(mail: Mail): Promise<{ delivered: boolean }> {
   const url = process.env.SMTP_URL;
   if (!url) {
+    // Développement / démonstration sans courrier : le message (liens compris) est lisible dans le terminal.
     console.log(`[koti:mail] (non envoyé, SMTP_URL absent)\n  À : ${mail.to}\n  Objet : ${mail.subject}\n${mail.text.split("\n").map((l) => `  | ${l}`).join("\n")}`);
     return { delivered: false };
   }
@@ -29,7 +31,7 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean }> {
     await transporter.sendMail({ from: process.env.MAIL_FROM || "KOTI <no-reply@koti.app>", to: mail.to, subject: mail.subject, text: mail.text, html: mail.html });
     return { delivered: true };
   } catch (err) {
-    console.error("[koti:mail] échec d'envoi", mail.subject, err instanceof Error ? err.message : err);
+    logError("mail", err, { subject: mail.subject }, { message: "échec d'envoi d'un e-mail" });
     throw err;
   }
 }

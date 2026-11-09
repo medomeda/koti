@@ -1,12 +1,47 @@
+import type { Instrumentation } from "next";
+
 /**
  * Démarrage du serveur : applique les migrations de la base si KOTI_AUTO_MIGRATE=1 (image Docker, Coolify).
  * En développement, on lance `npm run db:migrate` à la main. Les migrations sont idempotentes ; en cas d'échec
  * le serveur ne démarre pas (mieux vaut un déploiement en erreur qu'une application sur un schéma obsolète).
  */
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.KOTI_AUTO_MIGRATE !== "1") return;
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { logError, logInfo } = await import("@/server/log");
+  // Arrêt brutal du processus : la cause est consignée avant la sortie (n'empêche pas l'arrêt).
+  process.on("uncaughtExceptionMonitor", (err) => logError("process", err, undefined, { message: "exception non interceptée : le processus s'arrête" }));
+  if (process.env.KOTI_AUTO_MIGRATE !== "1") return;
   const { migrate } = await import("drizzle-orm/node-postgres/migrator");
   const { getDb } = await import("@/server/db/client");
   await migrate(getDb(), { migrationsFolder: "./drizzle" });
-  console.log("[koti] migrations de la base appliquées");
+  logInfo("startup", "migrations de la base appliquées");
 }
+
+/**
+ * Toute erreur non gérée côté serveur (page, action, route d'API, rendu) passe ici : l'utilisateur ne voit qu'un message
+ * générique, l'administrateur trouve ici l'erreur complète, la requête concernée et le code (`digest`) affiché à l'écran.
+ */
+export const onRequestError: Instrumentation.onRequestError = async (err, request, context) => {
+  const { logError } = await import("@/server/log");
+  const { isDatabaseUnavailable } = await import("@/server/db/availability");
+  const header = (name: string) => {
+    const v = request.headers[name];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  const e = err as { digest?: string };
+  logError(
+    "request",
+    err,
+    {
+      method: request.method,
+      path: request.path.split("?")[0],
+      route: context.routePath,
+      routeType: context.routeType,
+      router: context.routerKind,
+      render: context.renderSource,
+      userAgent: header("user-agent")?.slice(0, 160),
+      forwardedFor: header("x-forwarded-for")?.split(",").at(-1)?.trim(),
+    },
+    { ref: e.digest, message: isDatabaseUnavailable(err) ? "base de données injoignable" : undefined },
+  );
+};
