@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/marketing/site-header";
-import { Alert } from "@/components/ui/feedback";
 
 export const metadata: Metadata = { title: "Confidentialité" };
 
@@ -10,7 +9,6 @@ export default function PrivacyPage() {
       <SiteHeader />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:px-6 md:py-16">
         <h1 className="font-display text-4xl font-bold tracking-tight">Confidentialité</h1>
-        <Alert tone="warning">Texte provisoire de la version de démonstration. Il doit être rédigé ou validé par un juriste avant toute ouverture au public.</Alert>
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Données collectées</h2>
           <p className="leading-relaxed text-muted-foreground">Nom, adresse e-mail, numéro de téléphone, ainsi que les informations des tontines auxquelles vous participez : cotisations, paiements déclarés et tours de main.</p>

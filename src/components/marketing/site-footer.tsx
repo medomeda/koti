@@ -22,7 +22,7 @@ export function SiteFooter() {
           <Link href="/confidentialite" className="block text-muted-foreground hover:text-foreground">Confidentialité</Link>
         </nav>
       </div>
-      <p className="border-t px-4 py-4 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} KOTI. Version de démonstration : données fictives, aucun paiement réel.</p>
+      <p className="border-t px-4 py-4 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} KOTI. KOTI ne détient ni ne transfère aucun fonds.</p>
     </footer>
   );
 }

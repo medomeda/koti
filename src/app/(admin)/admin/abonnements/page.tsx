@@ -37,7 +37,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
   };
   return (
     <>
-      <PageHeader title="Abonnements" description="Répartition des offres et facturation. Les paiements d'abonnement sont simulés." />
+      <PageHeader title="Abonnements" description="Répartition des offres et facturation. Le règlement est manuel : activez l'offre d'un client depuis sa fiche une fois son paiement reçu." />
 
       <section aria-label="Répartition par offre" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {data.breakdown.map((b) => (
@@ -118,7 +118,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
         <CardHeader>
           <div>
             <CardTitle>Dernières factures</CardTitle>
-            <CardDescription>Factures simulées de tous les clients.</CardDescription>
+            <CardDescription>Factures de tous les clients.</CardDescription>
           </div>
         </CardHeader>
         <div className="overflow-x-auto">

@@ -1,4 +1,4 @@
-# Déploiement Coolify : application KOTI + base PostgreSQL (version de démonstration : données fictives).
+# Déploiement Coolify : application KOTI + base PostgreSQL (production par défaut ; démonstration : KOTI_DEMO_MODE=1).
 # Guide : docs/DEPLOIEMENT_COOLIFY.md
 services:
   db:
@@ -25,8 +25,14 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://koti:${SERVICE_PASSWORD_POSTGRES}@db:5432/koti
-      # Les migrations s'appliquent au démarrage ; sur une instance de démonstration vide, les données fictives sont importées.
+      # Les migrations s'appliquent au démarrage.
       KOTI_AUTO_MIGRATE: "1"
+      # Premier compte Super administrateur (créé seulement s'il n'existe aucun compte d'équipe ; mot de passe de 12 caractères minimum).
+      KOTI_BOOTSTRAP_ADMIN_EMAIL: ${KOTI_BOOTSTRAP_ADMIN_EMAIL:-}
+      KOTI_BOOTSTRAP_ADMIN_PASSWORD: ${KOTI_BOOTSTRAP_ADMIN_PASSWORD:-}
+      KOTI_BOOTSTRAP_ADMIN_NAME: ${KOTI_BOOTSTRAP_ADMIN_NAME:-}
+      # Règlement des offres payantes : 0 = manuel (l'équipe KOTI active l'offre après paiement), 1 = paiement en ligne (à brancher).
+      KOTI_ONLINE_PAYMENTS: ${KOTI_ONLINE_PAYMENTS:-0}
       # Généré et conservé par Coolify (secret des routes d'administration /api/v1/*).
       CRON_SECRET: ${SERVICE_HEX_64_CRONSECRET}
       # Authentification (Better Auth) : secret généré par Coolify ; adresse publique à renseigner (ex. https://koti-demo.mondomaine.com).
@@ -40,7 +46,8 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contact@koti.app}
-      KOTI_DEMO_MODE: ${KOTI_DEMO_MODE:-1}
+      # 1 uniquement pour une instance de démonstration (bandeau, comptes fictifs, page /guide).
+      KOTI_DEMO_MODE: ${KOTI_DEMO_MODE:-0}
       KOTI_ALLOW_DEMO_RESET: ${KOTI_ALLOW_DEMO_RESET:-0}
       # Derrière le proxy Traefik de Coolify : IP client lue dans X-Forwarded-For.
       TRUST_PROXY: ${TRUST_PROXY:-1}

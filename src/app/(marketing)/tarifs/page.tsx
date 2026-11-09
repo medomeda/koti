@@ -20,7 +20,6 @@ export default async function PricingPage() {
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 md:py-16">
         <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">Des tarifs simples, payés par l&apos;organisateur</h1>
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">Les membres rejoignent gratuitement. Seul l&apos;organisateur choisit une offre, selon le nombre de tontines et de participants qu&apos;il anime.</p>
-        <p className="mt-3 max-w-2xl rounded-lg bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground">Version de démonstration : ces offres et ces prix sont indicatifs. Aucun paiement n&apos;est demandé.</p>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {plans.map((p) => (

@@ -31,7 +31,7 @@ export default async function AdminDashboardPage() {
   const k = o.kpis;
   return (
     <>
-      <PageHeader title="Tableau de bord" description="Vue d'ensemble de l'activité de la plateforme. Toutes les valeurs sont calculées sur les données fictives de la démonstration." />
+      <PageHeader title="Tableau de bord" description="Vue d'ensemble de l'activité de la plateforme." />
 
       <section aria-label="Indicateurs" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatCard label="Inscrits" value={k.signups.total} icon={<Users />} href="/admin/clients" hint={<Delta now={k.signups.thisMonth} before={k.signups.lastMonth} />} />

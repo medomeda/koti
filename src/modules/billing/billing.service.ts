@@ -11,6 +11,22 @@ import { allPlans, overages, planById, subscriptionOf, usageOf } from "./quota";
 
 export const TRIAL_DAYS = 14;
 
+/**
+ * Mode de règlement des offres payantes. Tant que le paiement en ligne (Mobile Money) n'est pas branché
+ * (KOTI_ONLINE_PAYMENTS différent de 1), le règlement est MANUEL : le client profite de l'essai gratuit, puis c'est
+ * l'équipe KOTI qui active l'offre après réception du paiement. Sans activation, l'offre retombe sur le gratuit
+ * à la fin de l'essai ou de la période payée : aucune facture n'est émise sans paiement constaté.
+ */
+export const manualBilling = () => process.env.KOTI_ONLINE_PAYMENTS !== "1";
+
+/** Le client peut-il choisir lui-même cette offre ? (toujours oui en paiement en ligne ; sinon : gratuit, essai, ou baisse d'offre payante). */
+export function selfServiceAllowed(sub: Subscription | null | undefined, current: Plan, target: Plan): boolean {
+  if (!manualBilling() || target.monthlyPrice === 0) return true;
+  if (!sub) return false;
+  if (sub.status === "TRIAL" || !sub.trialUsed) return true;
+  return current.monthlyPrice > 0 && target.monthlyPrice < current.monthlyPrice;
+}
+
 /** Ajoute des mois calendaires (le 31 + 1 mois = dernier jour du mois suivant). */
 export function addMonths(date: ISODate, months: number): ISODate {
   const d = parseISODate(date);
@@ -63,6 +79,10 @@ function invoiceFor(s: DbState, sub: Subscription, plan: Plan, periodStart: ISOD
 export function changePlan(ctx: Ctx, planId: PlanId) {
   tx((s) => {
     assertClientAccount(s, ctx.userId);
+    const sub = subscriptionOf(s, ctx.userId);
+    if (!selfServiceAllowed(sub, planById(s, sub?.planId ?? "FREE"), planById(s, planId))) {
+      throw new AppError("INVALID_STATE", "Le passage à une offre payante est activé par l'équipe KOTI après réception de votre paiement. Contactez-nous pour le régler.");
+    }
     applyPlanChange(s, ctx, ctx.userId, planId, "subscription.change");
   });
 }
@@ -74,7 +94,10 @@ export function changePlan(ctx: Ctx, planId: PlanId) {
 export function applyPlanChange(s: DbState, ctx: Ctx, targetUserId: string, planId: PlanId, auditAction: string, reason?: string) {
   const sub = subscriptionOf(s, targetUserId);
   if (!sub) throw new AppError("NOT_FOUND", "Abonnement introuvable.");
-  if (sub.planId === planId) throw conflict(targetUserId === ctx.userId ? "Vous êtes déjà sur cette offre." : "Ce client est déjà sur cette offre.");
+  // Règlement manuel : l'équipe qui active l'offre (paiement reçu) peut aussi confirmer l'offre que le client essaie déjà.
+  const activation = manualBilling() && targetUserId !== ctx.userId && planById(s, planId).monthlyPrice > 0;
+  const fromTrial = sub.status === "TRIAL";
+  if (sub.planId === planId && !(activation && fromTrial)) throw conflict(targetUserId === ctx.userId ? "Vous êtes déjà sur cette offre." : "Ce client est déjà sur cette offre.");
   const target = planById(s, planId);
   const bad = overages(usageOf(s, targetUserId), target);
   if (bad.length > 0) {
@@ -91,9 +114,9 @@ export function applyPlanChange(s: DbState, ctx: Ctx, targetUserId: string, plan
     sub.currentPeriodStart = null;
     sub.currentPeriodEnd = null;
     sub.canceledAt = nowIso;
-  } else if (sub.status === "TRIAL") {
+  } else if (sub.status === "TRIAL" && !activation) {
     // Changement d'offre pendant l'essai : l'essai continue, la première facture suivra à son terme.
-  } else if (!sub.trialUsed) {
+  } else if (!sub.trialUsed && !activation) {
     sub.status = "TRIAL";
     sub.trialUsed = true;
     sub.canceledAt = null;
@@ -105,7 +128,7 @@ export function applyPlanChange(s: DbState, ctx: Ctx, targetUserId: string, plan
     sub.canceledAt = null;
     sub.currentPeriodStart = day;
     sub.currentPeriodEnd = addMonths(day, 1);
-    const upgraded = planById(s, before).monthlyPrice < target.monthlyPrice || before === "FREE";
+    const upgraded = planById(s, before).monthlyPrice < target.monthlyPrice || before === "FREE" || fromTrial;
     // Descente entre deux offres payantes : le nouveau prix s'applique à la prochaine période.
     if (upgraded) invoiceFor(s, sub, target, day, ctx.now);
   }
@@ -141,6 +164,20 @@ export function runBilling(s: DbState, now: Date): number {
   for (const sub of s.subscriptions) {
     const plan = planById(s, sub.planId);
     if (plan.monthlyPrice === 0) continue;
+    if (manualBilling()) {
+      // Règlement manuel : sans activation par l'équipe KOTI, l'essai ou la période payée se termine sur l'offre gratuite.
+      const trialOver = sub.status === "TRIAL" && sub.trialEndsAt !== null && sub.trialEndsAt <= now.toISOString();
+      const periodOver = sub.status === "ACTIVE" && sub.currentPeriodEnd !== null && sub.currentPeriodEnd <= day;
+      if (trialOver || periodOver) {
+        sub.planId = "FREE";
+        sub.status = "ACTIVE";
+        sub.trialEndsAt = null;
+        sub.currentPeriodStart = null;
+        sub.currentPeriodEnd = null;
+        sub.canceledAt = now.toISOString();
+      }
+      continue;
+    }
     if (sub.status === "TRIAL" && sub.trialEndsAt && sub.trialEndsAt <= now.toISOString()) {
       sub.status = "ACTIVE";
       sub.currentPeriodStart = sub.currentPeriodEnd ?? day;
@@ -176,6 +213,9 @@ export function getAccount(ctx: Ctx) {
       trialDaysLeft,
       /** Pour chaque offre : ce qui empêcherait d'y passer (vide = possible). */
       plans: allPlans(s),
+      manual: manualBilling(),
+      /** Pour chaque offre : le client peut-il la choisir seul ? (sinon : activation par l'équipe KOTI) */
+      selfService: Object.fromEntries(allPlans(s).map((p) => [p.id, selfServiceAllowed(sub, plan, p)])) as Record<PlanId, boolean>,
       blockers: Object.fromEntries(allPlans(s).map((p) => [p.id, overages(usage, p)])) as Record<PlanId, string[]>,
     };
   });

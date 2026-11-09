@@ -203,7 +203,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ us
         <CardHeader>
           <div>
             <CardTitle>Factures</CardTitle>
-            <CardDescription>Factures simulées.</CardDescription>
+            <CardDescription>Factures émises.</CardDescription>
           </div>
         </CardHeader>
         {c.invoices.length === 0 ? (

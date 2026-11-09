@@ -26,10 +26,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </Link>
         </p>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Équipe KOTI ? <Link href="/admin/login" className="font-medium text-primary hover:underline">Connexion à l&apos;administration</Link>
-      </p>
-      {reset && <Alert tone="success">Le jeu de démonstration a été réinitialisé.</Alert>}
+      {reset && isDemoMode() && <Alert tone="success">Le jeu de démonstration a été réinitialisé.</Alert>}
       {next?.startsWith("/invite/") && <Alert tone="brand">Connectez-vous (ou créez un compte) pour répondre à votre invitation.</Alert>}
       <LoginForm next={target} demo={isDemoMode() ? { password: DEMO_PASSWORD, accounts: DEMO_ACCOUNTS.map(({ email, fullName, hint }) => ({ email, fullName, hint })) } : undefined} />
     </div>

@@ -4,6 +4,7 @@ import { PlanPicker } from "@/components/shared/plan-picker";
 import { UsageMeter as Meter } from "@/components/shared/usage-meter";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { Alert, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireUser } from "@/lib/auth/session";
@@ -22,9 +23,12 @@ export default async function AccountPage() {
   return (
     <>
       <PageHeader title="Mon abonnement" description="Votre offre, votre consommation et vos factures." back={{ href: "/profile", label: "Profil" }} />
-      <Alert tone="warning" className="mb-5">
-        Version de démonstration : les paiements d&apos;abonnement sont simulés et aucune somme n&apos;est prélevée.
-      </Alert>
+      {a.manual && (
+        <Alert tone="brand" className="mb-5">
+          Chaque offre payante commence par 14 jours d&apos;essai gratuit. Ensuite, l&apos;équipe KOTI active votre offre dès réception de votre paiement :{" "}
+          <Link href="/contact" className="font-medium underline">contactez-nous</Link>. Le paiement en ligne arrivera plus tard.
+        </Alert>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
         <Card>
@@ -84,14 +88,14 @@ export default async function AccountPage() {
         <h2 id="offres" className="mb-3 text-lg font-semibold">
           Changer d&apos;offre
         </h2>
-        <PlanPicker plans={a.plans} currentId={a.plan.id} blockers={a.blockers} trialAvailable={!sub?.trialUsed} />
+        <PlanPicker plans={a.plans} currentId={a.plan.id} blockers={a.blockers} selfService={a.selfService} trialAvailable={!sub?.trialUsed} manual={a.manual} />
       </section>
 
       <Card className="mt-8">
         <CardHeader>
           <div>
             <CardTitle>Factures</CardTitle>
-            <CardDescription>Factures simulées : elles n&apos;ont aucune valeur comptable.</CardDescription>
+            <CardDescription>Vos factures émises par KOTI.</CardDescription>
           </div>
         </CardHeader>
         {a.invoices.length === 0 ? (
@@ -119,7 +123,7 @@ export default async function AccountPage() {
                   <TableCell>{i.planName}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatFCFA(i.amount)}</TableCell>
                   <TableCell>
-                    <Badge tone="success">Payée (simulée)</Badge>
+                    <Badge tone="success">Payée</Badge>
                   </TableCell>
                 </TableRow>
               ))}

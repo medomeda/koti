@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/marketing/site-header";
-import { Alert } from "@/components/ui/feedback";
 
 export const metadata: Metadata = { title: "Conditions d'utilisation" };
 
@@ -10,7 +9,6 @@ export default function TermsPage() {
       <SiteHeader />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:px-6 md:py-16">
         <h1 className="font-display text-4xl font-bold tracking-tight">Conditions d&apos;utilisation</h1>
-        <Alert tone="warning">Texte provisoire de la version de démonstration. Il doit être rédigé ou validé par un juriste avant toute ouverture au public.</Alert>
         <section className="space-y-2">
           <h2 className="text-xl font-semibold">Ce que fait KOTI</h2>
           <p className="leading-relaxed text-muted-foreground">KOTI est un outil de suivi : il enregistre les membres, les cotisations attendues, les paiements déclarés et validés et l&apos;ordre des tours de main. KOTI ne reçoit, ne conserve et ne transfère aucun fonds.</p>

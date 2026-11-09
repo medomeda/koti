@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useState } from "react";
 import { changePlanAction } from "@/actions/billing";
@@ -12,17 +13,17 @@ import type { PlanId } from "@/types/domain";
 import { ConfirmDialog } from "./confirm-dialog";
 
 /**
- * Choix de l'offre (SIMULÉ). Le bouton d'une offre impossible à prendre (usage trop important)
+ * Choix de l'offre. Le bouton d'une offre impossible à prendre (usage trop important)
  * est désactivé et la raison affichée ; le serveur revérifie de toute façon.
  */
-export function PlanPicker({ plans, currentId, blockers, trialAvailable }: { plans: Plan[]; currentId: PlanId; blockers: Record<PlanId, string[]>; trialAvailable: boolean }) {
+export function PlanPicker({ plans, currentId, blockers, selfService, trialAvailable, manual }: { plans: Plan[]; currentId: PlanId; blockers: Record<PlanId, string[]>; selfService: Record<PlanId, boolean>; trialAvailable: boolean; manual: boolean }) {
   const [target, setTarget] = useState<Plan | null>(null);
   const current = plans.find((p) => p.id === currentId)!;
 
   const describe = (p: Plan) => {
     if (p.monthlyPrice === 0) return "Retour à l'offre gratuite : effectif immédiatement. Les factures déjà émises restent disponibles.";
-    if (current.monthlyPrice === 0 && trialAvailable) return `Vous commencez par 14 jours d'essai gratuit, sans facture. Ensuite ${formatFCFA(p.monthlyPrice)} par mois (paiement simulé).`;
-    if (p.monthlyPrice > current.monthlyPrice) return `Passage immédiat à ${formatFCFA(p.monthlyPrice)} par mois, facturé tout de suite (paiement simulé, sans prorata).`;
+    if (current.monthlyPrice === 0 && trialAvailable) return `Vous commencez par 14 jours d'essai gratuit, sans facture. Ensuite ${formatFCFA(p.monthlyPrice)} par mois : ${manual ? "l'équipe KOTI active votre offre après réception de votre paiement, sinon vous revenez au gratuit." : "facturé automatiquement."}`;
+    if (p.monthlyPrice > current.monthlyPrice) return `Passage immédiat à ${formatFCFA(p.monthlyPrice)} par mois, facturé tout de suite, sans prorata.`;
     return `Le nouveau prix de ${formatFCFA(p.monthlyPrice)} par mois s'appliquera à la prochaine période.`;
   };
 
@@ -61,9 +62,15 @@ export function PlanPicker({ plans, currentId, blockers, trialAvailable }: { pla
                 </li>
               </ul>
               {!isCurrent && blocked.length > 0 && <p className="mt-3 text-xs text-warning-soft-foreground">Impossible pour l&apos;instant : {blocked.join(" ; ")}.</p>}
+              {!isCurrent && !selfService[p.id] ? (
+                <Button asChild className="mt-4" variant="outline">
+                  <Link href="/contact">Demander l&apos;activation</Link>
+                </Button>
+              ) : (
               <Button className="mt-4" variant={isCurrent ? "ghost" : "outline"} disabled={isCurrent || blocked.length > 0} onClick={() => setTarget(p)}>
                 {isCurrent ? "Offre en cours" : p.monthlyPrice === 0 ? "Revenir au gratuit" : p.monthlyPrice > current.monthlyPrice ? "Choisir cette offre" : "Passer à cette offre"}
               </Button>
+              )}
             </div>
           );
         })}

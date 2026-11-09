@@ -81,7 +81,7 @@ export const FAQ: Array<{ q: string; a: string }> = [
     a: "Son historique de paiements est conservé. Ses échéances à venir non payées sont retirées et ses tours de main à venir sont libérés. L'organisateur peut inviter quelqu'un pour reprendre la place.",
   },
   {
-    q: "Les tarifs affichés sont-ils définitifs ?",
-    a: "Non. Cette version est une démonstration : les offres et les prix sont indicatifs et aucun paiement n'est demandé.",
+    q: "Comment payer une offre payante ?",
+    a: "Chaque offre payante commence par 14 jours d'essai gratuit, sans carte bancaire. Ensuite, l'équipe KOTI vous indique comment régler (Mobile Money ou virement) et active votre offre dès réception du paiement. Le paiement en ligne arrivera plus tard.",
   },
 ];

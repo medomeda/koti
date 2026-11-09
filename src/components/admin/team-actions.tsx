@@ -62,7 +62,7 @@ export function InviteStaffButton() {
                     {copied ? <Check /> : <Copy />} {copied ? "Copié" : "Copier"}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">En démonstration, aucun e-mail n&apos;est envoyé : le lien ne sera plus affiché après fermeture.</p>
+                <p className="text-xs text-muted-foreground">Transmettez ce lien à la personne invitée : il ne sera plus affiché après fermeture.</p>
               </DialogBody>
               <DialogFooter>
                 <Button onClick={reset}>Terminé</Button>
