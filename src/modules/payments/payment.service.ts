@@ -139,7 +139,17 @@ function summaryOf(s: Readonly<DbState>, tontineId: string, rows: ObligationView
   const declared = rows.filter((r) => r.status === "DECLARED").length;
   const active = s.tontineMembers.filter((m) => m.tontineId === tontineId && m.status === "ACTIVE");
   const lateMembers = new Set(rows.filter((r) => r.status === "LATE").map((r) => r.memberId));
-  return { dueCount: due.length, paidCount: paid, lateCount: late, declaredCount: declared, membersUpToDate: active.filter((m) => !lateMembers.has(m.id)).length, memberCount: active.length };
+  const amount = (list: ObligationView[]) => sumAmounts(list.map((r) => r.lastPayment?.amount ?? r.expectedAmount));
+  return {
+    dueCount: due.length,
+    paidCount: paid,
+    lateCount: late,
+    declaredCount: declared,
+    dueAmount: sumAmounts(due.map((r) => r.expectedAmount)),
+    paidAmount: amount(due.filter((r) => r.status === "PAID")),
+    lateAmount: sumAmounts(due.filter((r) => r.status === "LATE").map((r) => r.expectedAmount)),
+    declaredAmount: amount(rows.filter((r) => r.status === "DECLARED")),
+    membersUpToDate: active.filter((m) => !lateMembers.has(m.id)).length, memberCount: active.length };
 }
 
 /**

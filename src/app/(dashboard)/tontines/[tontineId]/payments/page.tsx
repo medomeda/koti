@@ -103,9 +103,9 @@ export default async function TontinePaymentsPage({ params, searchParams }: { pa
 
       {!isAdmin && summary && (
         <section aria-label="Situation de la tontine" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="Cotisations réglées" value={`${summary.paidCount}/${summary.dueCount}`} tone="success" hint="Échéances arrivées à terme" />
-          <StatCard label="En attente" value={summary.declaredCount} tone={summary.declaredCount ? "warning" : "neutral"} hint="Déclarées, à valider" />
-          <StatCard label="Retards" value={summary.lateCount} tone={summary.lateCount ? "danger" : "neutral"} />
+          <StatCard label="Cotisations réglées" value={`${summary.paidCount}/${summary.dueCount}`} tone="success" hint={`${formatFCFA(summary.paidAmount)} sur ${formatFCFA(summary.dueAmount)}`} />
+          <StatCard label="En attente" value={summary.declaredCount} tone={summary.declaredCount ? "warning" : "neutral"} hint={`${formatFCFA(summary.declaredAmount)} à valider`} />
+          <StatCard label="Retards" value={summary.lateCount} tone={summary.lateCount ? "danger" : "neutral"} hint={`${formatFCFA(summary.lateAmount)} à régler`} />
           <StatCard label="Membres à jour" value={`${summary.membersUpToDate}/${summary.memberCount}`} tone="success" />
         </section>
       )}

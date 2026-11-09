@@ -147,7 +147,7 @@ function DeclarePaymentDialog({ target, open, onOpenChange }: { target: DeclareT
               {(p) => <Textarea {...p} {...register("comment")} rows={2} maxLength={500} />}
             </Field>
             {proofMode !== "OFF" && (
-              <Field label={proofMode === "REQUIRED" ? "Justificatif de paiement" : "Justificatif (facultatif)"} required={proofMode === "REQUIRED"} hint="Capture d'écran du paiement ou photo du reçu. L'image est réduite automatiquement." error={proofError ?? undefined}>
+              <Field label={proofMode === "REQUIRED" ? "Justificatif de paiement" : "Justificatif (facultatif)"} required={proofMode === "REQUIRED"} error={proofError ?? undefined}>
                 {(p) =>
                   proof ? (
                     <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
@@ -173,7 +173,6 @@ function DeclarePaymentDialog({ target, open, onOpenChange }: { target: DeclareT
                 }
               </Field>
             )}
-            {target.sharing && <p className="text-xs text-muted-foreground">Transparence activée : le statut et le montant de ce paiement seront visibles des autres membres. Votre justificatif et votre référence restent privés.</p>}
             <FormError message={formError} />
           </DialogBody>
           <DialogFooter>
