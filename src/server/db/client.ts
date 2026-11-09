@@ -1,6 +1,7 @@
 import "server-only";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { rethrowIfUnavailable } from "./availability";
 import * as schema from "./schema";
 
 /**
@@ -20,7 +21,8 @@ export interface Connection {
 }
 
 export function createConnection(url: string, options: { max?: number } = {}): Connection {
-  const pool = new Pool({ connectionString: url, max: options.max ?? 10, idleTimeoutMillis: 30_000 });
+  // connectionTimeoutMillis : une base injoignable fait échouer la requête au bout de 5 s au lieu de la laisser pendre indéfiniment.
+  const pool = new Pool({ connectionString: url, max: options.max ?? 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 5_000 });
   // Une erreur sur une connexion inactive ne doit pas faire tomber le processus.
   pool.on("error", (err) => console.error("[koti] connexion PostgreSQL inactive en erreur", err.message));
   return { db: drizzle(pool, { schema }), pool, close: () => pool.end() };
@@ -61,7 +63,7 @@ export async function transaction<T>(fn: (tx: Tx) => Promise<T>, db: Db = getDb(
       return await db.transaction(fn);
     } catch (err) {
       const code = sqlState(err);
-      if (attempt >= 3 || !code || !RETRYABLE.has(code)) throw err;
+      if (attempt >= 3 || !code || !RETRYABLE.has(code)) return rethrowIfUnavailable(err);
     }
   }
 }

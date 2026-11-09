@@ -103,6 +103,7 @@ passera sur le domaine de production.
 | `/guide` en 404 | `KOTI_DEMO_MODE` différent de `1`. |
 | Réinitialisation : `401` | Secret incorrect, ou `KOTI_DEMO_MODE` désactivé. |
 | Données perdues après suppression de la ressource | Le volume `pg-data` a été supprimé avec elle (sans gravité : au redémarrage, la base est vide et le jeu de démo est réimporté). |
+| Page « Service momentanément indisponible » | L'application ne joint pas PostgreSQL (service `db` arrêté ou `DATABASE_URL` erroné). `/api/ready` répond alors 503 (`/api/health` reste 200). Elle se rétablit seule quand la base revient. |
 | `app` redémarre en boucle | La base n'est pas prête ou `DATABASE_URL` est incorrect : voir les Runtime Logs (message de migration). |
 
 ## 9. Ce que cette version n'est pas

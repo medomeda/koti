@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { getSession, type SessionUser } from "@/lib/auth/session";
 import { isBarredFromClientSpace } from "@/lib/permissions/platform";
 import { ctxFor, type Ctx } from "@/server/context";
+import { isDatabaseUnavailable } from "@/server/db/availability";
 import { AppError } from "@/server/errors";
 
 export type ActionResult<T = undefined> = { ok: true; data: T; message?: string } | { ok: false; error: string; fieldErrors?: Record<string, string> };
@@ -21,6 +22,7 @@ function toFailure(err: unknown): ActionResult<never> {
     if (err.code === "UNAUTHENTICATED") return { ok: false, error: "Votre session a expiré. Reconnectez-vous." };
     return { ok: false, error: err.message, fieldErrors: err.fieldErrors };
   }
+  if (isDatabaseUnavailable(err)) return { ok: false, error: "Service momentanément indisponible. Réessayez dans quelques instants." };
   // Erreur inattendue : détail journalisé côté serveur uniquement, jamais renvoyé au client.
   console.error("[koti] action en échec", err);
   return { ok: false, error: "Une erreur inattendue est survenue. Réessayez." };

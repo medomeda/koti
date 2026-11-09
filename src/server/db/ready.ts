@@ -1,6 +1,7 @@
 import "server-only";
 import { count, sql } from "drizzle-orm";
 import { isDemoMode } from "@/lib/demo";
+import { rethrowIfUnavailable } from "./availability";
 import { getDb } from "./client";
 import { buildDemoState } from "./seed-pg";
 import { users } from "./schema";
@@ -15,8 +16,8 @@ let ready: Promise<void> | null = null;
 
 export function ensureReady(): Promise<void> {
   ready ??= run().catch((err) => {
-    ready = null;
-    throw err;
+    ready = null; // la prochaine requête réessaie (base démarrée entre-temps)
+    return rethrowIfUnavailable(err);
   });
   return ready;
 }

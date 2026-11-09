@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { getDb, type Db, type Executor } from "../client";
+import { rethrowIfUnavailable } from "../availability";
 import { ensureReady } from "../ready";
 import { deliverPush } from "@/modules/push/push.service";
 import { emptyState, SCHEMA_VERSION, type DbState } from "../store";
@@ -225,8 +226,12 @@ export async function insertAll(state: DbState, db: Db = getDb()): Promise<void>
 
 /** Lecture : état cohérent (instantané) du périmètre demandé, sans verrou. */
 export async function pgRead<T>(scope: Scope, fn: (s: Readonly<DbState>) => T, db: Db = getDb()): Promise<T> {
-  await ensureReady();
-  return db.transaction(async (tx) => fn(await load(tx, scope)), { isolationLevel: "repeatable read", accessMode: "read only" });
+  try {
+    await ensureReady();
+    return await db.transaction(async (tx) => fn(await load(tx, scope)), { isolationLevel: "repeatable read", accessMode: "read only" });
+  } catch (err) {
+    return rethrowIfUnavailable(err);
+  }
 }
 
 const RETRYABLE = new Set(["40001", "40P01"]);
@@ -256,7 +261,7 @@ export async function pgTx<T>(scope: Scope, fn: (s: DbState) => T, db: Db = getD
       return result;
     } catch (err) {
       const code = sqlState(err);
-      if (attempt >= 3 || !code || !RETRYABLE.has(code)) throw err;
+      if (attempt >= 3 || !code || !RETRYABLE.has(code)) return rethrowIfUnavailable(err);
     }
   }
 }

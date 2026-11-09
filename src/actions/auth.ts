@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { APIError } from "better-auth/api";
 import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "@/lib/validations";
+import { isDatabaseUnavailable } from "@/server/db/availability";
 import { AppError } from "@/server/errors";
 import { getAuth, REALM_HEADER, requireEmailVerification } from "@/server/auth";
 import { mailIsConfigured } from "@/server/mail";
@@ -29,7 +30,10 @@ async function openSession(email: string, password: string, realm: "client" | "a
     const res = await getAuth().api.signInEmail({ body: { email, password }, headers: h });
     return { userId: res.user.id };
   } catch (err) {
+    // Base injoignable : ne pas faire passer une panne pour un mauvais mot de passe.
+    if (isDatabaseUnavailable(err)) return { error: "Service momentanément indisponible. Réessayez dans quelques instants." };
     if (!(err instanceof APIError)) throw err;
+    if (err.statusCode >= 500) return { error: "Service momentanément indisponible. Réessayez dans quelques instants." };
     const code = (err.body as { code?: string } | undefined)?.code;
     if (code === "EMAIL_NOT_VERIFIED") return { error: "Adresse e-mail non confirmée. Un nouveau lien de confirmation vient de vous être envoyé.", unverified: true };
     if (err.statusCode === 403) return { error: err.message || "Connexion refusée." };
