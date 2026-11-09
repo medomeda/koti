@@ -12,4 +12,4 @@ services:
       BETTER_AUTH_SECRET: local-auth-secret-0123456789abcdef0123456789abcdef
       BETTER_AUTH_URL: http://localhost:3701
       # Test local : démonstration avec données fictives (retirer ces lignes pour tester la production).
-      KOTI_DEMO_MODE: "1"
+      KOTI_DEMO_MODE: "0"
