@@ -1,15 +1,30 @@
-# Déploiement Coolify SANS base de données intégrée : seule l'application KOTI est déployée et elle se connecte à une
-# base PostgreSQL 14+ déjà existante (serveur dédié, base gérée par Coolify ou par un hébergeur). Variante avec base : docker-compose.with-db.yml.
-# Phase de test : démonstration active par défaut ; production : KOTI_DEMO_MODE=0.
+# Déploiement Coolify : application KOTI + base PostgreSQL (phase de test : démonstration active par défaut ; production : KOTI_DEMO_MODE=0).
 # Guide : docs/DEPLOIEMENT_COOLIFY.md
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: koti
+      # Généré et conservé par Coolify.
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: koti
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U koti -d koti"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   app:
     build: .
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      # Adresse de la base PostgreSQL existante (obligatoire), ex. postgresql://utilisateur:motdepasse@hote:5432/koti
-      # Les caractères spéciaux du mot de passe s'encodent (@ → %40, ! → %21). Ajoutez ?sslmode=require si l'hébergeur l'exige.
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://koti:${SERVICE_PASSWORD_POSTGRES}@db:5432/koti
       # Les migrations s'appliquent au démarrage.
       KOTI_AUTO_MIGRATE: "1"
       # Premier compte Super administrateur (créé seulement s'il n'existe aucun compte d'équipe ; mot de passe de 12 caractères minimum).
@@ -43,3 +58,6 @@ services:
       timeout: 5s
       start_period: 40s
       retries: 3
+
+volumes:
+  pg-data:
