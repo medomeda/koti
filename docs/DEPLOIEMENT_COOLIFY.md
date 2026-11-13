@@ -1,6 +1,6 @@
 # Déploiement sur Coolify — production
 
-Deux services : `app` (l'application) et `db` (PostgreSQL 16). Les données vivent dans le volume `pg-data` et
+Deux fichiers Compose au choix : `docker-compose.with-db.yml` (deux services : `app` et `db`, PostgreSQL 16 intégré) ou `docker-compose.yml` (le service `app` seul, qui se connecte à une base PostgreSQL existante, voir la section 4 bis). Les données vivent dans le volume `pg-data` et
 survivent aux redéploiements. Au premier démarrage, les migrations sont appliquées et la base reste **vide** : aucun
 compte ni donnée fictive. Le premier compte Super administrateur est créé à partir des variables `KOTI_BOOTSTRAP_ADMIN_*`
 (section 4). Pour une instance de **démonstration** (testeurs, données fictives), voir la section 9.
@@ -10,13 +10,13 @@ compte ni donnée fictive. Le premier compte Super administrateur est créé à 
 - Coolify installé sur le VPS, serveur « localhost » validé.
 - Un sous-domaine (ex. `koti-demo.mondomaine.com`) dont l'enregistrement **A** pointe vers l'IP du VPS (ports 80 et 443 ouverts).
 - Le dépôt `github.com/medomeda/koti` accessible par Coolify (GitHub App ou clé de déploiement), branche `main`.
-  Fichiers nécessaires (déjà dans le dépôt) : `Dockerfile`, `docker-compose.yml`, `.dockerignore`.
+  Fichiers nécessaires (déjà dans le dépôt) : `Dockerfile`, `docker-compose.yml`, `docker-compose.with-db.yml`, `.dockerignore`.
 
 ## 2. Créer la ressource
 
 1. **Projet → Environment → + New → Private Repository** (via GitHub App) et choisir `medomeda/koti`, branche `main`.
 2. **Build Pack : Docker Compose**.
-3. **Base Directory** : `/` — **Docker Compose Location** : `/docker-compose.yml`.
+3. **Base Directory** : `/` — **Docker Compose Location** : `/docker-compose.yml` (base PostgreSQL **externe**, voir la section 4 bis) ou `/docker-compose.with-db.yml` (base PostgreSQL **intégrée** au déploiement).
 4. Enregistrer : Coolify lit le fichier et crée les variables.
 
 ## 3. Domaine
@@ -45,7 +45,7 @@ d'administration (réinitialisation de la démo, tâches planifiées). Copiez sa
 
 Connexion de l'équipe : `https://votre-domaine/admin/login` (le lien n'apparaît volontairement pas sur la page de connexion des clients).
 
-**Déjà réglées par défaut dans `docker-compose.yml`** (modifiables dans l'onglet Environment Variables) :
+**Déjà réglées par défaut dans les fichiers Compose** (modifiables dans l'onglet Environment Variables) :
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
@@ -60,6 +60,19 @@ Connexion de l'équipe : `https://votre-domaine/admin/login` (le lien n'apparaî
 | `VAPID_SUBJECT` | `mailto:contact@koti.app` | Contact transmis aux services push (adresse de l'exploitant). |
 | `KOTI_AUTO_MIGRATE` | `1` | Applique les migrations de la base au démarrage (le serveur ne démarre pas si elles échouent). |
 | `TRUST_PROXY` | `1` | L'adresse IP réelle du visiteur est lue via le proxy de Coolify (limitation des tentatives de connexion). |
+
+## 4 bis. Fichier sans base de données (`docker-compose.yml`)
+
+Ce fichier ne déploie que l'application. Prérequis : une base PostgreSQL 14 ou plus, **vide**, créée pour KOTI (par exemple `koti`),
+avec un utilisateur qui en est propriétaire (KOTI crée ses tables au démarrage). Variable obligatoire en plus de la section 4 :
+
+| Variable | Exemple |
+|---|---|
+| `DATABASE_URL` | `postgresql://koti:motdepasse@hote:5432/koti` (encodez les caractères spéciaux du mot de passe : `@` → `%40`, `!` → `%21` ; ajoutez `?sslmode=require` si l'hébergeur l'exige) |
+
+Points d'attention : l'application doit **joindre** la base depuis le conteneur (réseau Docker de Coolify, pare-feu ou liste d'adresses
+autorisées de l'hébergeur) ; les sauvegardes sont à votre charge (la base n'est plus dans le volume du déploiement) ; les justificatifs de paiement
+sont dans cette même base. Les `SERVICE_PASSWORD_POSTGRES` et `pg-data` n'existent que dans `docker-compose.with-db.yml`.
 
 ## 5. Déployer et vérifier
 
@@ -149,5 +162,5 @@ Restes avant d'ouvrir au public : textes légaux (CGU, confidentialité) à fair
 Avec Docker Desktop lancé :
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build   # http://localhost:3701/guide (mode démonstration local)
+docker compose -f docker-compose.with-db.yml -f docker-compose.local.yml up -d --build   # http://localhost:3701/guide (mode démonstration local)
 ```
