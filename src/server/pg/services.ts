@@ -16,6 +16,7 @@ import * as tontines from "@/modules/tontines/tontine.service";
 import { ensureObligations } from "@/modules/contributions/contribution.service";
 import { eq } from "drizzle-orm";
 import { hourlySlotKey, runScheduledJobs as runJobs } from "@/server/jobs";
+import { rethrowIfUnavailable } from "@/server/db/availability";
 import { ensureReady } from "@/server/db/ready";
 import { jobRuns } from "@/server/db/schema";
 import type { Ctx } from "@/server/context";
@@ -141,7 +142,8 @@ const runJobsWrite = writes(runJobs, () => ({ everything: true }));
 export async function runScheduledJobs(now = new Date(), opts: { force?: boolean } = {}): Promise<ReturnType<typeof runJobs>> {
   if (!opts.force) {
     await ensureReady();
-    const [done] = await getDb().select({ key: jobRuns.key }).from(jobRuns).where(eq(jobRuns.key, hourlySlotKey(now))).limit(1);
+    // Base injoignable ou mot de passe refusé : écran « service momentanément indisponible » plutôt qu'une erreur de page.
+    const [done] = await getDb().select({ key: jobRuns.key }).from(jobRuns).where(eq(jobRuns.key, hourlySlotKey(now))).limit(1).catch(rethrowIfUnavailable);
     if (done) return { skipped: true as const };
   }
   const result = await runJobsWrite(now, opts);
